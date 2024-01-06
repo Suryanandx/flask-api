@@ -10,7 +10,6 @@ import os
 import pickle
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from werkzeug.middleware.shared_data import SharedDataMiddleware
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.llms import OpenAI
@@ -21,7 +20,7 @@ from langchain.callbacks import get_openai_callback
 load_dotenv()
 
 # Set your OpenAI API key
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
 app = Flask(__name__)
 CORS(app)
@@ -30,11 +29,6 @@ CORS(app)
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app)
 db = mongo.db
-
-class SessionState:
-    def __init__(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
 
 # Function to process PDF and extract text
 def process_pdf(file_path):
@@ -46,33 +40,29 @@ def process_pdf(file_path):
                 text += pdf_reader.pages[page_num].extract_text()
         return text
     except Exception as e:
-        print(f"Error processing PDF: {str(e)}")
+        logging.error(f"Error processing PDF: {str(e)}")
         return None
 
 # Function to process PDF and store it in the 'uploads' folder
 def process_pdf_and_store(file):
     try:
-        # Ensure the "uploads" folder exists, create if not
         uploads_folder = os.path.join(os.getcwd(), "uploads")
         if not os.path.exists(uploads_folder):
             os.makedirs(uploads_folder)
 
-        # Use secure_filename to generate a safe version of the original filename
         filename = secure_filename(file.filename)
         file_path = os.path.join(uploads_folder, filename)
         file.save(file_path)
 
-        # Process PDF and return text
         text = process_pdf(file_path)
         if text is not None:
-            return filename  # Return the filename if processing was successful
+            return filename
         else:
-            os.remove(file_path)  # Remove the file if processing failed
+            os.remove(file_path)
             return None
     except Exception as e:
-        print(f"Error processing PDF and storing: {str(e)}")
+        logging.error(f"Error processing PDF and storing: {str(e)}")
         return None
-
 
 # Route to process and upload a file
 @app.route('/upload', methods=['POST'])
@@ -95,25 +85,18 @@ def upload_file():
             return jsonify({"error": "Error processing PDF and storing"}), 500
 
     except Exception as e:
+        logging.error(f"Error uploading file: {str(e)}")
         return jsonify({"error": f"Error uploading file: {str(e)}"}), 500
-
-
 
 # Route to get all projects or add a new project
 @app.route('/projects', methods=['GET', 'POST'])
 def projects():
     if request.method == 'GET':
-        # Retrieve all projects from the database
         projects = db.projects.find()
-
-        # Convert ObjectId to string for JSON serialization
         projects = [{"_id": str(project["_id"]), **project} for project in projects]
-
-        # Use dumps for proper serialization of ObjectId in JSON response
         return dumps({"projects": projects}), 200
 
     elif request.method == 'POST':
-        # Create a new project
         data = request.get_json()
 
         if 'name' not in data or 'description' not in data or 'filenames' not in data:
@@ -123,7 +106,6 @@ def projects():
         description = data['description']
         filenames = data['filenames']
 
-        # Store project information in the database
         project_data = {
             "name": name,
             "description": description,
@@ -138,22 +120,20 @@ def projects():
 @app.route('/projects/<project_id>', methods=['GET'])
 def get_project_by_id(project_id):
     try:
-        # Validate if the provided ID is a valid ObjectId
         if not ObjectId.is_valid(project_id):
             return jsonify({"error": "Invalid project ID"}), 400
 
-        # Retrieve the project from the database
         project = db.projects.find_one({"_id": ObjectId(project_id)})
 
         if not project:
             return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
 
-        # Convert ObjectId to string for JSON serialization
         project["_id"] = str(project["_id"])
 
         return jsonify({"project": project}), 200
 
     except Exception as e:
+        logging.error(f"Error retrieving project by ID: {str(e)}")
         return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
 
 # Route to retrieve uploaded files
@@ -180,19 +160,16 @@ def get_or_create_vector_store(chunks, store_name):
 @app.route('/chat/<project_id>', methods=['POST'])
 def chat(project_id):
     try:
-        # Get user's query from the request
         data = request.get_json()
         if 'query' not in data:
             return jsonify({"error": "Query not provided"}), 400
 
         query = data['query']
 
-        # Retrieve project information from the database
         project = db.projects.find_one({"_id": ObjectId(project_id)})
         if not project:
             return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
 
-        # Process PDFs, split text, and create or retrieve vector store
         filenames = project.get('filenames', [])
         text = ""
         for filename in filenames:
@@ -209,37 +186,26 @@ def chat(project_id):
         chunks = text_splitter.split_text(text=text)
         vector_store = get_or_create_vector_store(chunks, project_id)
 
-        # Perform similarity search and question-answering
         docs = vector_store.similarity_search(query=query, k=3)
         llm = OpenAI()
         chain = load_qa_chain(llm=llm, chain_type="stuff")
 
-        # Using the get_openai_callback from Streamlit code
         with get_openai_callback() as cb:
             response = chain.run(input_documents=docs, question=query)
 
-        # Append the question and response to the chat history
         chat_history = project.get('chat_history', [])
         chat_history.append({"user": query, "bot": response})
 
-        # Update the project in the database with the new chat history
         db.projects.update_one(
             {"_id": ObjectId(project_id)},
             {"$set": {"chat_history": chat_history}}
         )
 
-        # Return the response
         return jsonify({"response": response})
 
     except Exception as e:
-        print(f"Error processing chat request: {str(e)}")
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
-
-# Add route to serve uploaded files
-app.add_url_rule('/uploads/<filename>', 'uploaded_file', build_only=True)
-app.wsgi_app = SharedDataMiddleware(app.wsgi_app, {'/uploads': os.path.join(os.getcwd(), 'uploads')})
-
 if __name__ == '__main__':
-    app.run(port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=False)
