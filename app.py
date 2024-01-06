@@ -20,7 +20,7 @@ from langchain.callbacks import get_openai_callback
 load_dotenv()
 
 # Set your OpenAI API key
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+os.environ["OPENAI_API_KEY"] = "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"
 
 app = Flask(__name__)
 CORS(app)
