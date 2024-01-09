@@ -187,7 +187,7 @@ def chat(project_id):
         vector_store = get_or_create_vector_store(chunks, project_id)
 
         docs = vector_store.similarity_search(query=query, k=3)
-        llm = OpenAI()
+        llm = OpenAI(temperature=0.7, model="gpt-3.5-turbo-instruct")
         chain = load_qa_chain(llm=llm, chain_type="stuff")
 
         with get_openai_callback() as cb:
