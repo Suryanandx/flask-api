@@ -93,5 +93,5 @@ Werkzeug==3.0.1
 yarl==1.9.4
 zipp==3.17.0
 Gunicorn
-BeautifulSoup
+BeautifulSoup4==4.12.3
 bs4
