@@ -1,6 +1,6 @@
 import logging
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
@@ -15,22 +15,27 @@ from langchain.vectorstores import FAISS
 from langchain.llms import OpenAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.callbacks import get_openai_callback
+import openai
+from bs4 import BeautifulSoup
+import requests
 
-# Load environment variables
+# Load environment variables from a .env file
 load_dotenv()
 
-# Set your OpenAI API key
+# Set your OpenAI API key from the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
+# Initialize the Flask app and enable CORS
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins="*")
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 # Configure MongoDB
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app)
 db = mongo.db
 
-# Function to process PDF and extract text
+# Function to process a PDF file and extract text
 def process_pdf(file_path):
     try:
         with open(file_path, 'rb') as f:
@@ -43,7 +48,7 @@ def process_pdf(file_path):
         logging.error(f"Error processing PDF: {str(e)}")
         return None
 
-# Function to process PDF and store it in the 'uploads' folder
+# Function to process a PDF file and store it in the 'uploads' folder
 def process_pdf_and_store(file):
     try:
         uploads_folder = os.path.join(os.getcwd(), "uploads")
@@ -63,6 +68,58 @@ def process_pdf_and_store(file):
     except Exception as e:
         logging.error(f"Error processing PDF and storing: {str(e)}")
         return None
+
+# Route for the root endpoint
+@app.route("/")
+@cross_origin()
+def helloWorld():
+    return "Hello, API WORLD!"
+
+# Route to scrape multiple websites and perform a query
+@app.route('/scrape-and-query', methods=['POST'])
+def scrape_and_query():
+    data = request.get_json()
+    urls = data.get('urls', [])
+    user_query = data.get('query')
+
+    if not urls or not user_query:
+        return jsonify({"error": "URLs or query not provided"}), 400
+
+    try:
+        scraped_data = []
+
+        for url in urls:
+            # Scrape each website
+            response = requests.get(url)
+            response.raise_for_status()  # Check for HTTP errors
+
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
+                scraped_data.append(scraped_text)
+
+        # Join scraped data from all URLs into a single text
+        all_scraped_data = ' '.join(scraped_data)
+
+        # Query OpenAI's Davinci Chat Model
+        openai.api_key = os.environ["OPENAI_API_KEY"]
+        ai_response = openai.ChatCompletion.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. Your expertise is firmly grounded in data-driven insights and comprehensive analysis. When presented with unsorted data, your primary objective is to meticulously filter out any extraneous or irrelevant components, including elements containing symbols like # and $. Furthermore, you excel at identifying and eliminating any HTML or XML tags and syntax within the data, streamlining it into a refined and meaningful form."},
+                {"role": "user", "content": all_scraped_data},
+                {"role": "assistant", "content": f"Question: {user_query}\nAnswer:"},
+            ],
+        )
+        answer = ai_response['choices'][0]['message']['content']
+
+        return jsonify({"response": answer})
+
+    except requests.exceptions.RequestException as req_err:
+        return jsonify({"error": f"Request error: {str(req_err)}"}), 500
+
+    except Exception as e:
+        return jsonify({"error": f"Scraping error: {str(e)}"}), 500
 
 # Route to process and upload a file
 @app.route('/upload', methods=['POST'])
