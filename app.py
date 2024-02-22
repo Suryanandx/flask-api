@@ -77,6 +77,7 @@ def helloWorld():
 
 # Route to scrape multiple websites and perform a query
 @app.route('/scrape-and-query', methods=['POST'])
+@cross_origin()
 def scrape_and_query():
     data = request.get_json()
     urls = data.get('urls', [])
