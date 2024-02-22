@@ -91,7 +91,7 @@ def scrape_and_query():
 
         for url in urls:
             # Scrape each website with a timeout of 60 seconds
-            response = requests.get(url, timeout=60)
+            response = requests.get(url, timeout=120)
             response.raise_for_status()  # Check for HTTP errors
 
             if response.status_code == 200:
