@@ -75,8 +75,8 @@ def process_pdf_and_store(file):
 def helloWorld():
     return "Hello, API WORLD!"
 
-# Route to scrape multiple websites and perform a query
 @app.route('/scrape-and-query', methods=['POST'])
+@cross_origin()
 def scrape_and_query():
     data = request.get_json()
     urls = data.get('urls', [])
@@ -89,8 +89,8 @@ def scrape_and_query():
         scraped_data = []
 
         for url in urls:
-            # Scrape each website
-            response = requests.get(url)
+            # Scrape each website with a timeout of 60 seconds
+            response = requests.get(url, timeout=60)
             response.raise_for_status()  # Check for HTTP errors
 
             if response.status_code == 200:
