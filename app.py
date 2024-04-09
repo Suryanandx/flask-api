@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from bson import ObjectId
 from bson.json_util import dumps
-import os
+import os, sys
 import pickle
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -18,7 +18,23 @@ from langchain.callbacks import get_openai_callback
 import openai
 from bs4 import BeautifulSoup
 import requests
+from pathlib import Path
+import nltk
+import camelot
+from PyPDF2 import PdfFileReader
+from camelot.core import TableList
+import os
+import argparse
+import subprocess
+import logging
+import tabula
+import json
 
+nltk.download('punkt')
+from nltk.tokenize import sent_tokenize
+import tiktoken
+model = "gpt-4-turbo-preview"
+enc = tiktoken.encoding_for_model(model)
 # Load environment variables from a .env file
 load_dotenv()
 
@@ -35,19 +51,55 @@ app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app)
 db = mongo.db
 
+
+def parse_json_garbage(s):
+    s = s[next(idx for idx, c in enumerate(s) if c in "{["):]
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError as e:
+        return json.loads(s[:e.pos])
+
 # Function to process a PDF file and extract text
-def process_pdf(file_path):
+def process_pdf(file_path, pages):
     try:
         with open(file_path, 'rb') as f:
             pdf_reader = PdfReader(f)
             text = ""
-            for page_num in range(len(pdf_reader.pages)):
-                text += pdf_reader.pages[page_num].extract_text()
+            for page_num in range(len(pdf_reader.pages)):                
+                if pages == "all" or str(page_num) in pages:
+                    text += pdf_reader.pages[page_num].extract_text()
         return text
     except Exception as e:
         logging.error(f"Error processing PDF: {str(e)}")
         return None
 
+def total_pages(pdf):
+    with open(pdf, 'rb') as file:
+        pdf_object = PdfFileReader(file)
+        pages = ','.join([str(i) for i in range(pdf_object.getNumPages())])
+    return pages
+
+
+def extract_tables(pdf, pattern):
+    try:
+        cmd = f"pdfgrep -Pn '{pattern}' {pdf} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
+        print(cmd)
+        logging.info(cmd)
+        pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
+        logging.info(f'count of pages {pages}')
+        if not pages:
+            logging.warning(f"No matching pages found in {pdf}")
+            return
+
+        tabula.convert_into(pdf, f"{os.path.splitext(pdf)[0]}.csv", output_format="csv", pages="39")
+        # jsonoutput = tabula.read_pdf(pdf, output_format="json", pages="39")
+        # print(jsonoutput)
+        logging.info(f"Processed {pdf}")
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        print(exc_type, fname, exc_tb.tb_lineno)
+        logging.error(f"Error processing {pdf}: {str(e)}")
 # Function to process a PDF file and store it in the 'uploads' folder
 def process_pdf_and_store(file):
     try:
@@ -59,7 +111,7 @@ def process_pdf_and_store(file):
         file_path = os.path.join(uploads_folder, filename)
         file.save(file_path)
 
-        text = process_pdf(file_path)
+        text = process_pdf(file_path, "all")
         if text is not None:
             return filename
         else:
@@ -68,6 +120,77 @@ def process_pdf_and_store(file):
     except Exception as e:
         logging.error(f"Error processing PDF and storing: {str(e)}")
         return None
+
+
+
+def tokenizer_length(string: str) -> int:
+    """Returns the number of tokens in a text string."""
+    return len(enc.encode(string))
+
+
+def split_text_by_sentences(text, token_limit):
+    """Splits a text into segments of complete sentences, each with a number of tokens up to token_limit."""
+    sentences = sent_tokenize(text)
+    current_count = 0
+    sentence_buffer = []
+    segments = []
+
+    for sentence in sentences:
+        # Estimate the token length of the sentence
+        sentence_length = tokenizer_length(sentence)
+
+        if current_count + sentence_length > token_limit:
+            if sentence_buffer:
+                segments.append(' '.join(sentence_buffer))
+                sentence_buffer = [sentence]
+                current_count = sentence_length
+            else:
+                # Handle the case where a single sentence exceeds the token_limit
+                segments.append(sentence)
+                current_count = 0
+        else:
+            sentence_buffer.append(sentence)
+            current_count += sentence_length
+
+    # Add the last segment if there's any
+    if sentence_buffer:
+        segments.append(' '.join(sentence_buffer))
+
+    return segments
+
+
+def split_text_by_tokens(text, token_limit):
+    """Splits a text into segments, each with a number of tokens up to token_limit."""
+    words = text.split()
+    current_count = 0
+    word_buffer = []
+    segments = []
+
+    for word in words:
+        # Add a space for all but the first word in the buffer
+        test_text = ' '.join(word_buffer + [word]) if word_buffer else word
+        word_length = tokenizer_length(test_text)
+
+        if word_length > token_limit:
+            # If a single word exceeds the token_limit, it's added to its own segment
+            segments.append(word)
+            word_buffer.clear()
+            continue
+
+        if current_count + word_length > token_limit:
+            segments.append(' '.join(word_buffer))
+            word_buffer = [word]
+            current_count = tokenizer_length(word)
+        else:
+            word_buffer.append(word)
+            current_count = word_length
+
+    # Add the last segment if there's any
+    if word_buffer:
+        segments.append(' '.join(word_buffer))
+
+    return segments
+
 
 # Route for the root endpoint
 @app.route("/")
@@ -121,6 +244,85 @@ def scrape_and_query():
     except Exception as e:
         return jsonify({"error": f"Scraping error: {str(e)}"}), 500
 
+
+
+
+@app.route('/scrape-and-query-pdf', methods=['POST'])
+@cross_origin()
+def scrape_and_query_pdf():
+    print("calling scrape_and_query_pdf")
+    data = request.get_json()
+    urls = data.get('urls', [])
+    user_query = data.get('query')
+
+    if not urls or not user_query:
+        return jsonify({"error": "URLs or query not provided"}), 400
+
+    try:
+        text = ""
+        for filename in urls:
+            pdf_path = os.path.join("uploads", filename)
+            cmd = f"pdfgrep -Pn '^(?s:(?=.*Revenue)|(?=.*Income)|(?=.*EBITDA)|(?=.*Annual)|(?=.*Q3))|(?=.*Growth)|(?=.*guidance)' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
+            print(cmd)
+            logging.info(cmd)
+            pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
+            logging.info(f'count of pages {pages}')
+            if not pages:
+               logging.warning(f"No matching pages found in {pdf_path}")
+               return
+            processed_text = process_pdf(pdf_path, pages)
+            if processed_text is not None:
+                text += processed_text
+            file = open('content.txt', 'w') 
+            file.write(processed_text) 
+            file.close()
+        parts = split_text_by_sentences(text, token_limit=30000)
+        print("parts")
+        print(len(parts))
+        print(type(parts))
+        full_completion = {
+                "name": "NA",
+                "annual_revenue_2023": "NA",
+                "EBITA_2023": "NA",
+                "annual_growth_percentage": "NA",
+                "EBITA_growth_percentage": "NA",
+                "guidance_next_year": "NA"
+             }
+
+        for index, segment in enumerate(parts):
+            print("inside for")
+            openai.api_key = os.environ["OPENAI_API_KEY"]
+            print("chat number")
+            print(index)
+            completion = openai.ChatCompletion.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. Your expertise is firmly grounded in data-driven insights and comprehensive analysis. When presented with unsorted data, your primary objective is to meticulously filter out any extraneous or irrelevant components, including elements containing symbols like # and $. Furthermore, you excel at identifying and eliminating any HTML or XML tags and syntax within the data, streamlining it into a refined and meaningful form."},
+                    {"role": "user", "content": segment},
+                    {"role": "assistant", "content": f"Question: {user_query}\nAnswer:"},
+                ]
+            )
+            print(completion.choices[0].message.content.strip() )
+            current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
+            print(current_result)
+            full_completion = {
+                "name": current_result['name'] if current_result['name'] != 'NA' else full_completion['name'],
+                "annual_revenue_2023": current_result['annual_revenue_2023'] if current_result['annual_revenue_2023'] != 'NA' else full_completion['annual_revenue_2023'],
+                "EBITA_2023": current_result['EBITA_2023'] if current_result['EBITA_2023'] != 'NA' else full_completion['EBITA_2023'],
+                "annual_growth_percentage": current_result['annual_growth_percentage'] if current_result['annual_growth_percentage'] != 'NA' else full_completion['annual_growth_percentage'],
+                "EBITA_growth_percentage": current_result['EBITA_growth_percentage'] if current_result['EBITA_growth_percentage'] != 'NA' else full_completion['EBITA_growth_percentage'],
+                "guidance_next_year": current_result['guidance_next_year'] if current_result['guidance_next_year'] != 'NA' else full_completion['guidance_next_year']
+             }
+            print(full_completion)
+        return jsonify({"response": full_completion })
+
+    except requests.exceptions.RequestException as req_err:
+        return jsonify({"error": f"Request error: {str(req_err)}"}), 500
+
+    except Exception as e:
+        return jsonify({"error": f"Scraping error: {str(e)}"}), 500
+
+
 # Route to process and upload a file
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -154,25 +356,39 @@ def projects():
         return dumps({"projects": projects}), 200
 
     elif request.method == 'POST':
-        data = request.get_json()
+        try:
+            data = request.get_json()
 
-        if 'name' not in data or 'description' not in data or 'filenames' not in data:
-            return jsonify({"error": "Incomplete project information"}), 400
+            if 'name' not in data or 'description' not in data or 'filenames' not in data:
+                return jsonify({"error": "Incomplete project information"}), 400
 
-        name = data['name']
-        description = data['description']
-        filenames = data['filenames']
 
-        project_data = {
-            "name": name,
-            "description": description,
-            "filenames": filenames
-        }
 
-        db.projects.insert_one(project_data)
 
-        return jsonify({"message": "Project created successfully"}), 201
+            name = data['name']
+            description = data['description']
+            filenames = data['filenames']
+            jsonfilenames = []
 
+            tables = []
+            for filename in filenames:
+                pdf_path = os.path.join("uploads", filename)
+                print(pdf_path)
+                extract_tables(pdf_path, '^(?s:(?=.*Revenue)|(?=.*Income))')
+                jsonfilenames.append(filename.replace(".pdf", ".json"))
+
+            project_data = {
+                "name": name,
+                "description": description,
+                "filenames": filenames,
+                "jsonfilenames": jsonfilenames
+            }
+
+            db.projects.insert_one(project_data)
+
+            return jsonify({"message": "Project created successfully"}), 201
+        except Exception as e:
+            return jsonify({"error": f"project adding  error: {str(e)}"}), 500
 # Route to get a project by ID
 @app.route('/projects/<project_id>', methods=['GET'])
 def get_project_by_id(project_id):
@@ -181,6 +397,7 @@ def get_project_by_id(project_id):
             return jsonify({"error": "Invalid project ID"}), 400
 
         project = db.projects.find_one({"_id": ObjectId(project_id)})
+
 
         if not project:
             return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
@@ -192,6 +409,8 @@ def get_project_by_id(project_id):
     except Exception as e:
         logging.error(f"Error retrieving project by ID: {str(e)}")
         return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
+
+
 
 # Route to retrieve uploaded files
 @app.route('/uploads/<filename>', methods=['GET'])
@@ -231,7 +450,7 @@ def chat(project_id):
         text = ""
         for filename in filenames:
             pdf_path = os.path.join("uploads", filename)
-            processed_text = process_pdf(pdf_path)
+            processed_text = process_pdf(pdf_path, "all")
             if processed_text is not None:
                 text += processed_text
 

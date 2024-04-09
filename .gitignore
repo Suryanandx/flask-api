@@ -2,3 +2,4 @@ venv
 .env
 uploads
 *.pkl
+content.txt
