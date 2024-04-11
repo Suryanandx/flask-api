@@ -162,61 +162,31 @@ def split_text_by_sentences(text, token_limit):
 def extract_json(filename, user_query):
     text = ""
     pdf_path = os.path.join("uploads", filename)
-    # cmd = f"pdfgrep -Pn '^(?s:(?=.*Revenue)|(?=.*Income)|(?=.*EBITDA)|(?=.*Annual)|(?=.*Q3))|(?=.*Growth)|(?=.*guidance)' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
-    # print(cmd)
-    # logging.info(cmd)
-    # pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    # logging.info(f'count of pages {pages}')
-    # if not pages:
-    #    logging.warning(f"No matching pages found in {pdf_path}")
-    #    return
-    # processed_text = process_pdf(pdf_path, pages)
-    processed_text = process_pdf(pdf_path, "all")
+    
+    cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
+    print(cmd)
+    logging.info(cmd)
+    pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    logging.info(f'count of pages {pages}')
+    if not pages:
+       logging.warning(f"No matching pages found in {pdf_path}")
+       return
+    processed_text = process_pdf(pdf_path, pages)
     if processed_text is not None:
         text += processed_text
-    parts = split_text_by_sentences(text, token_limit=30000)
-    print("parts")
-    print(len(parts))
-    print(type(parts))
-    full_completion = {
-            "name": "NA",
-            "annual_revenue": "NA",
-            "EBITA": "NA",
-            "annual_growth_percentage": "NA",
-            "EBITA_growth_percentage": "NA",
-            "guidance_next_year": "NA"
-            }
-
-    for index, segment in enumerate(parts):
-        try:
-            print("inside for")
-            openai.api_key = os.environ["OPENAI_API_KEY"]
-            print("chat number")
-            print(index)
-            completion = openai.ChatCompletion.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. Your expertise is firmly grounded in data-driven insights and comprehensive analysis. When presented with unsorted data, your primary objective is to meticulously filter out any extraneous or irrelevant components, including elements containing symbols like # and $. Furthermore, you excel at identifying and eliminating any HTML or XML tags and syntax within the data, streamlining it into a refined and meaningful form."},
-                    {"role": "user", "content": segment},
-                    {"role": "assistant", "content": f"Question: {user_query}\nAnswer:"},
-                ]
-            )
-            print(completion.choices[0].message.content.strip() )
-            current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
-            print(current_result)
-            full_completion = {
-                "name": current_result['name'] if current_result['name'] != 'NA' else full_completion['name'],
-                "annual_revenue": current_result['annual_revenue'] if current_result['annual_revenue'] != 'NA' else full_completion['annual_revenue'],
-                "EBITA": current_result['EBITA'] if current_result['EBITA'] != 'NA' else full_completion['EBITA'],
-                "annual_growth_percentage": current_result['annual_growth_percentage'] if current_result['annual_growth_percentage'] != 'NA' else full_completion['annual_growth_percentage'],
-                "EBITA_growth_percentage": current_result['EBITA_growth_percentage'] if current_result['EBITA_growth_percentage'] != 'NA' else full_completion['EBITA_growth_percentage'],
-                "guidance_next_year": current_result['guidance_next_year'] if current_result['guidance_next_year'] != 'NA' else full_completion['guidance_next_year']
-                }
-            print(full_completion)
-        except Exception as e:
-            logging.error(f"Error processing chat request for project: {str(e)}")
-            return jsonify({"error": f"Scraping error: {str(e)}"}), 500    
-    return full_completion;
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+    print(text)
+    completion = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. Your expertise is firmly grounded in data-driven insights and comprehensive analysis. When presented with unsorted data, your primary objective is to meticulously filter out any extraneous or irrelevant components, including elements containing symbols like # and $. Furthermore, you excel at identifying and eliminating any HTML or XML tags and syntax within the data, streamlining it into a refined and meaningful form."},
+            {"role": "user", "content": text},
+            {"role": "assistant", "content": f"Question: {user_query}\nAnswer:"},
+        ]
+    )
+    print(completion.choices[0].message.content.strip() )
+    current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
+    return current_result
 
 
 
