@@ -3,3 +3,4 @@ venv
 uploads
 *.pkl
 content.txt
+*.jpg

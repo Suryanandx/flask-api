@@ -29,11 +29,15 @@ import subprocess
 import logging
 import tabula
 import json
+from pdf2image import convert_from_path
+import base64
+import fitz
+
 
 nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
 import tiktoken
-model = "gpt-4-turbo-preview"
+model = "gpt-4-turbo"
 enc = tiktoken.encoding_for_model(model)
 # Load environment variables from a .env file
 load_dotenv()
@@ -50,6 +54,11 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app)
 db = mongo.db
+
+# Function to encode the image
+def encode_image(image_path):
+  with open(image_path, "rb") as image_file:
+    return base64.b64encode(image_file.read()).decode('utf-8')
 
 
 def parse_json_garbage(s):
@@ -69,6 +78,28 @@ def process_pdf(file_path, pages):
                 if pages == "all" or str(page_num) in pages:
                     text += pdf_reader.pages[page_num].extract_text()
         return text
+    except Exception as e:
+        logging.error(f"Error processing PDF: {str(e)}")
+        return None
+    
+def pdf_to_image(pdf_location, pages):
+    try:
+        print(pdf_location)
+        images = []
+        doc = fitz.open(pdf_location)
+        for count, page in enumerate(pages):
+           print(page)
+           loaded_page = doc.load_page(int(page) - 1)  # number of page
+           print("opend file")
+           pix = loaded_page.get_pixmap()
+           print("pix")
+           output = f'out{page}.jpg'
+           print(output)
+           pix.save(output)
+           print("saved output")
+           base64_image = encode_image(f'out{page}.jpg')
+           images.append(base64_image)
+        return images
     except Exception as e:
         logging.error(f"Error processing PDF: {str(e)}")
         return None
@@ -190,6 +221,42 @@ def extract_json(filename, user_query):
 
 
 
+
+def extract_json_from_images(filename, user_query):
+    pdf_path = os.path.join("uploads", filename)    
+    
+    cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS OF CASH FLOWS)|(?=.*CONSOLIDATED STATEMENTS OF INCOME)|(?=.*Interest expenses and other bank charges)|(?=.*Depreciation and Amortization)|(?=.*CONSOLIDATED BALANCE SHEETS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
+    print(cmd)
+    logging.info(cmd)
+    pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    logging.info(f'count of pages {pages}')
+    print(pages)
+    pages_list = pages.split(",")
+    del pages_list[-1]
+    print(pages_list)
+    if not pages:
+       logging.warning(f"No matching pages found in {pdf_path}")
+       return
+    images = pdf_to_image(pdf_path, pages_list)
+    image_payloads = [ {
+          "type": "image_url",
+          "image_url": {
+            "url": f"data:image/jpeg;base64,{t}"
+          }
+        } for t in zip(images)]
+
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+    completion = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "user", "content": image_payloads},
+            {"role": "user", "content": user_query},
+        ]
+    )
+    print(completion.choices[0].message.content.strip() )
+    current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
+    return current_result
+
 def split_text_by_tokens(text, token_limit):
     """Splits a text into segments, each with a number of tokens up to token_limit."""
     words = text.split()
@@ -293,8 +360,8 @@ def scrape_and_query_pdf(project_id):
     if not urls or not user_query:
         return jsonify({"error": "URLs or query not provided"}), 400
     try:
-        mainReport = extract_json(urls[0], user_query)
-        compReport = extract_json(urls[1], user_query)
+        mainReport = extract_json_from_images(urls[0], user_query)
+        compReport = extract_json_from_images(urls[1], user_query)
 
 
 
