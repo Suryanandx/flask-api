@@ -76,7 +76,7 @@ def process_pdf(file_path, pages):
             text = ""
             for page_num in range(len(pdf_reader.pages)):                
                 if pages == "all" or str(page_num) in pages:
-                    text += pdf_reader.pages[page_num].extract_text()
+                    text += pdf_reader.pages[page_num - 1].extract_text()
         return text
     except Exception as e:
         logging.error(f"Error processing PDF: {str(e)}")
@@ -93,11 +93,11 @@ def pdf_to_image(pdf_location, pages):
            print("opend file")
            pix = loaded_page.get_pixmap()
            print("pix")
-           output = f'out{page}.jpg'
+           output = f"{os.path.splitext(pdf_location)[0]}-{count}.jpg"
            print(output)
            pix.save(output)
            print("saved output")
-           base64_image = encode_image(f'out{page}.jpg')
+           base64_image = encode_image( f"{os.path.splitext(pdf_location)[0]}-{count}.jpg")
            images.append(base64_image)
         return images
     except Exception as e:
@@ -221,6 +221,28 @@ def extract_json(filename, user_query):
 
 
 
+def extract_text_and_save(filename):
+    text = ""
+    pdf_path = os.path.join("uploads", filename)
+    
+    cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS OF CASH FLOWS)|(?=.*CONSOLIDATED STATEMENTS OF INCOME)|(?=.*Interest expenses and other bank charges)|(?=.*Depreciation and Amortization)|(?=.*CONSOLIDATED BALANCE SHEETS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
+    print(cmd)
+    logging.info(cmd)
+    pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    logging.info(f'count of pages {pages}')
+    if not pages:
+       logging.warning(f"No matching pages found in {pdf_path}")
+       return
+    processed_text = process_pdf(pdf_path, pages)
+    if processed_text is not None:
+        text += processed_text
+    text_file = open(f"{os.path.splitext(pdf_path)[0]}.txt", "w")
+    text_file.write(text)
+    text_file.close()       
+    return text
+
+
+
 
 def extract_json_from_images(filename, user_query):
     pdf_path = os.path.join("uploads", filename)    
@@ -245,16 +267,17 @@ def extract_json_from_images(filename, user_query):
           }
         } for t in zip(images)]
 
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    completion = openai.ChatCompletion.create(
-        model=model,
-        messages=[
-            {"role": "user", "content": image_payloads},
-            {"role": "user", "content": user_query},
-        ]
-    )
-    print(completion.choices[0].message.content.strip() )
-    current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
+    # openai.api_key = os.environ["OPENAI_API_KEY"]
+    # completion = openai.ChatCompletion.create(
+    #     model=model,
+    #     messages=[
+    #         {"role": "user", "content": image_payloads},
+    #         {"role": "user", "content": user_query},
+    #     ]
+    # )
+    # print(completion.choices[0].message.content.strip() )
+    # current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
+    current_result = {}
     return current_result
 
 def split_text_by_tokens(text, token_limit):
@@ -361,13 +384,158 @@ def scrape_and_query_pdf(project_id):
         return jsonify({"error": "URLs or query not provided"}), 400
     try:
         mainReport = extract_json_from_images(urls[0], user_query)
-        compReport = extract_json_from_images(urls[1], user_query)
+
+        start_from = 1
+        compReport = []
+        for index, item in enumerate(urls[start_from:], start_from):
+            current_comp_report =   extract_json_from_images(item, user_query)     
+            compReport.append(current_comp_report)
 
 
 
         db.projects.update_one(
         {"_id": ObjectId(project_id)},
-        {"$set": {"report": {
+        {"$set": {"report_ai": {
+            "main": mainReport,
+            "comp": compReport,
+            "growth_chart": [
+                {
+                "name": "Amneal",
+                "value": 6.1
+                },
+                {
+                "name": "Teva",
+                "value": 6
+                },
+                {
+                "name": "Eagle",
+                "value": 8.7
+                },
+                {
+                "name": "ANI",
+                "value": 4.2
+                }
+            ],
+            "stats": [
+                {
+                "name": "Amneal",
+                "market_cap": 0.7,
+                "net_leverage": 2.1,
+                "sales": 4,
+                "ebitda_margin": 2.2
+                },
+                {
+                "name": "Teva",
+                "market_cap": 1.7,
+                "net_leverage": 4.2,
+                "sales": 6,
+                "ebitda_margin": 1.2
+                },
+                {
+                "name": "Eagle",
+                "market_cap": 0.9,
+                "net_leverage": 3.1,
+                "sales": 4.6,
+                "ebitda_margin": 1.2
+                },
+                {
+                "name": "ANI",
+                "market_cap": 1.7,
+                "net_leverage": 2.5,
+                "sales": 6,
+                "ebitda_margin": 2
+                }
+            ]
+      
+      
+        }}}
+        )
+        return jsonify({"response": {
+            "main": mainReport,
+            "comp": compReport,
+            "growth_chart": [
+                {
+                "name": "Amneal",
+                "value": 6.1
+                },
+                {
+                "name": "Teva",
+                "value": 6
+                },
+                {
+                "name": "Eagle",
+                "value": 8.7
+                },
+                {
+                "name": "ANI",
+                "value": 4.2
+                }
+            ],
+            "stats": [
+                {
+                "name": "Amneal",
+                "market_cap": 0.7,
+                "net_leverage": 2.1,
+                "sales": 4,
+                "ebitda_margin": 2.2
+                },
+                {
+                "name": "Teva",
+                "market_cap": 1.7,
+                "net_leverage": 4.2,
+                "sales": 6,
+                "ebitda_margin": 1.2
+                },
+                {
+                "name": "Eagle",
+                "market_cap": 0.9,
+                "net_leverage": 3.1,
+                "sales": 4.6,
+                "ebitda_margin": 1.2
+                },
+                {
+                "name": "ANI",
+                "market_cap": 1.7,
+                "net_leverage": 2.5,
+                "sales": 6,
+                "ebitda_margin": 2
+                }
+            ]
+      
+        } })
+
+    except requests.exceptions.RequestException as req_err:
+        return jsonify({"error": f"Request error: {str(req_err)}"}), 500
+
+    except Exception as e:
+        return jsonify({"error": f"Scraping error: {str(e)}"}), 500
+
+
+
+
+@app.route('/scrape-and-query-pdf-to-text/<project_id>', methods=['POST'])
+@cross_origin()
+def scrape_and_query_pdf_save_to_txt(project_id):
+    print("calling scrape_and_query_pdf")
+    data = request.get_json()
+    urls = data.get('urls', [])
+    user_query = data.get('query')
+    project = db.projects.find_one({"_id": ObjectId(project_id)})
+    if not project:
+        return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+    urls = project.get('filenames', [])
+
+    if not urls or not user_query:
+        return jsonify({"error": "URLs or query not provided"}), 400
+    try:
+        mainReport = extract_text_and_save(urls[0])
+        compReport = extract_text_and_save(urls[1])
+
+
+
+        db.projects.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$set": {"report_txt": {
             "main": mainReport,
             "comp": compReport
         }}}
@@ -382,6 +550,7 @@ def scrape_and_query_pdf(project_id):
 
     except Exception as e:
         return jsonify({"error": f"Scraping error: {str(e)}"}), 500
+
 
 
 # Route to process and upload a file
