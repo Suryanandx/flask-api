@@ -602,20 +602,13 @@ def projects():
             name = data['name']
             description = data['description']
             filenames = data['filenames']
-            jsonfilenames = []
-
-            tables = []
-            for filename in filenames:
-                pdf_path = os.path.join("uploads", filename)
-                print(pdf_path)
-                extract_tables(pdf_path, '^(?s:(?=.*Revenue)|(?=.*Income))')
-                jsonfilenames.append(filename.replace(".pdf", ".json"))
+            report = data['report']
 
             project_data = {
                 "name": name,
                 "description": description,
                 "filenames": filenames,
-                "jsonfilenames": jsonfilenames
+                "report": report
             }
 
             db.projects.insert_one(project_data)
