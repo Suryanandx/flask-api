@@ -4,3 +4,4 @@ uploads
 *.pkl
 content.txt
 *.jpg
+log.txt
