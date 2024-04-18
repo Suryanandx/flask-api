@@ -49,6 +49,8 @@ load_dotenv()
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 
+PORT = os.getenv("PORT")
+
 # Initialize the Flask app and enable CORS
 app = Flask(__name__)
 CORS(app, origins="*")
