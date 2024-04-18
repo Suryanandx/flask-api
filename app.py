@@ -20,9 +20,7 @@ from bs4 import BeautifulSoup
 import requests
 from pathlib import Path
 import nltk
-import camelot
 from PyPDF2 import PdfFileReader
-from camelot.core import TableList
 import os
 import argparse
 import subprocess

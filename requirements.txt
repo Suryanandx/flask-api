@@ -112,16 +112,16 @@ beautifulsoup4==4.12.3
 bleach==6.0.0
 blinker==1.7.0
 cachetools==5.3.2
-camelot-py @ file:///home/conda/feedstock_root/build_artifacts/camelot-py_1704149510262/work
+camelot-py 
 certifi==2023.11.17
-cffi @ file:///home/conda/feedstock_root/build_artifacts/cffi_1696001724357/work
-chardet @ file:///home/conda/feedstock_root/build_artifacts/chardet_1695468614576/work
-charset-normalizer @ file:///home/conda/feedstock_root/build_artifacts/charset-normalizer_1698833585322/work
-click @ file:///home/conda/feedstock_root/build_artifacts/click_1692311806742/work
+cffi 
+chardet 
+charset-normalizer
+click 
 cmake==3.27.2
 comm==0.1.4
 contourpy==1.1.0
-cryptography @ file:///home/conda/feedstock_root/build_artifacts/cryptography-split_1708780250343/work
+cryptography 
 cycler==0.11.0
 dataclasses-json==0.5.14
 debugpy==1.6.7.post1
@@ -131,7 +131,7 @@ diffusers==0.20.0
 distro==1.9.0
 dnspython==2.4.2
 entrypoints==0.4
-et-xmlfile @ file:///home/conda/feedstock_root/build_artifacts/et_xmlfile_1674664118162/work
+et-xmlfile 
 executing==1.2.0
 faiss==1.8.0
 faiss-cpu==1.7.4
@@ -146,7 +146,7 @@ fonttools==4.42.1
 fqdn==1.5.1
 frozenlist==1.4.1
 fsspec==2023.6.0
-ghostscript @ file:///home/conda/feedstock_root/build_artifacts/python-ghostscript_1703179189586/work
+ghostscript 
 gitdb==4.0.11
 GitPython==3.1.40
 gradio==3.41.2
@@ -169,7 +169,7 @@ itsdangerous==2.1.2
 jedi==0.19.0
 Jinja2==3.1.2
 joblib==1.3.2
-JPype1 @ file:///home/conda/feedstock_root/build_artifacts/jpype1_1704184883319/work
+JPype1 
 json5==0.9.14
 jsonpatch==1.33
 jsonpointer==2.4
@@ -195,8 +195,8 @@ matplotlib==3.7.2
 matplotlib-inline==0.1.6
 mdurl==0.1.2
 mistune==3.0.1
-mkl-fft @ file:///croot/mkl_fft_1695058164594/work
-mkl-random @ file:///croot/mkl_random_1695059800811/work
+mkl-fft 
+mkl-random 
 mkl-service==2.4.0
 more-itertools==10.1.0
 mpmath==1.3.0
@@ -226,16 +226,16 @@ nvidia-nvtx-cu11==11.7.91
 openai==0.28.1
 openapi-schema-pydantic==1.2.4
 opencv-python==4.9.0
-openpyxl @ file:///home/conda/feedstock_root/build_artifacts/openpyxl_1695464696880/work
+openpyxl 
 orjson==3.9.5
 overrides==7.4.0
-packaging @ file:///croot/packaging_1710807400464/work
+packaging 
 pandas==2.1.4
 pandocfilters==1.5.0
 parso==0.8.3
 pdf2image==1.17.0
-pdfminer.six @ file:///home/conda/feedstock_root/build_artifacts/pdfminer.six_1703854269349/work
-pdftopng @ file:///home/conda/feedstock_root/build_artifacts/pdftopng_1701594598422/work
+pdfminer.six 
+pdftopng 
 pickleshare==0.7.5
 Pillow==10.1.0
 platformdirs==3.10.0
@@ -245,8 +245,8 @@ protobuf==3.20.3
 psutil==5.9.5
 pure-eval==0.2.2
 pyarrow==14.0.2
-pycparser @ file:///home/conda/feedstock_root/build_artifacts/pycparser_1711811537435/work
-pycryptodome @ file:///home/conda/feedstock_root/build_artifacts/pycryptodome_1704930721793/work
+pycparser 
+pycryptodome 
 pydantic==1.10.13
 pydantic_core==2.6.3
 pydeck==0.8.1b0
@@ -256,8 +256,8 @@ pymongo==4.6.1
 Pympler==1.0.1
 PyMuPDF==1.24.1
 PyMuPDFb==1.24.1
-pyparsing @ file:///home/conda/feedstock_root/build_artifacts/pyparsing_1709721012883/work
-pypdf @ file:///home/conda/feedstock_root/build_artifacts/pypdf-split_1709562657766/work/dist
+pyparsing
+pypdf 
 PyPDF2==3.0.1
 python-dateutil==2.8.2
 python-dotenv==1.0.0
@@ -278,7 +278,7 @@ sec-api==1.0.17
 semantic-version==2.10.0
 semver==3.0.2
 Send2Trash==1.8.2
-six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
+six 
 smmap==5.0.1
 sniffio==1.3.0
 soupsieve==2.5
@@ -293,7 +293,7 @@ streamlit-extras==0.1.5
 streamlit-keyup==0.2.2
 sympy==1.12
 tabula-py==2.9.0
-tabulate @ file:///home/conda/feedstock_root/build_artifacts/tabulate_1665138452165/work
+tabulate 
 tenacity==8.2.3
 terminado==0.17.1
 tiktoken==0.6.0
