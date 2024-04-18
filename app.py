@@ -32,6 +32,9 @@ import json
 from pdf2image import convert_from_path
 import base64
 import fitz
+import pandas as pd 
+
+from sec_api import XbrlApi
 
 
 nltk.download('punkt')
@@ -44,6 +47,7 @@ load_dotenv()
 
 # Set your OpenAI API key from the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 
 # Initialize the Flask app and enable CORS
 app = Flask(__name__)
@@ -712,6 +716,58 @@ def chat(project_id):
     except Exception as e:
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
+
+
+
+
+
+# convert XBRL-JSON of income statement to pandas dataframe
+def get_income_statement(xbrl_json):
+    income_statement_store = {}
+
+    # iterate over each US GAAP item in the income statement
+    for usGaapItem in xbrl_json['StatementsOfIncome']:
+        values = []
+        indicies = []
+
+        for fact in xbrl_json['StatementsOfIncome'][usGaapItem]:
+            # only consider items without segment. not required for our analysis.
+            if 'segment' not in fact:
+                index = fact['period']['startDate'] + '-' + fact['period']['endDate']
+                # ensure no index duplicates are created
+                if index not in indicies:
+                    values.append(fact['value'])
+                    indicies.append(index)                    
+
+        income_statement_store[usGaapItem] = pd.Series(values, index=indicies) 
+
+    income_statement = pd.DataFrame(income_statement_store)
+    # switch columns and rows so that US GAAP items are rows and each column header represents a date range
+    return income_statement.T 
+
+
+
+
+# Chat API route
+@app.route('/scrape-xbrl/<project_id>', methods=['POST'])
+def scrap_xbrl(project_id):
+    try:
+        data = request.get_json()
+        url_10k = data['xbrl']
+        company_name = data['name']
+        xbrl_json = xbrlApi.xbrl_to_json(htm_url=url_10k)
+        income_statement_google = get_income_statement(xbrl_json)
+        print("Income statement from " + name + "'s 2022 10-K filing as dataframe")
+        print('------------------------------------------------------------')
+        print(income_statement_google)
+        return jsonify({"response": xbrl_json})
+
+    except Exception as e:
+        logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
+        return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
+
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)
