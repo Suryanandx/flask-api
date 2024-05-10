@@ -593,7 +593,7 @@ def projects():
         try:
             data = request.get_json()
 
-            if 'name' not in data or 'description' not in data or 'filenames' not in data:
+            if 'name' not in data or 'description' not in data or 'comps' not in data:
                 return jsonify({"error": "Incomplete project information"}), 400
 
 
@@ -601,13 +601,13 @@ def projects():
 
             name = data['name']
             description = data['description']
-            filenames = data['filenames']
+            comps = data['comps']
             report = data['report']
 
             project_data = {
                 "name": name,
                 "description": description,
-                "filenames": filenames,
+                "comps": comps,
                 "report": report
             }
 
