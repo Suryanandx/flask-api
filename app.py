@@ -31,6 +31,7 @@ from pdf2image import convert_from_path
 import base64
 import fitz
 import pandas as pd 
+from datetime import datetime
 
 from sec_api import XbrlApi
 
@@ -271,17 +272,16 @@ def extract_json_from_images(filename, user_query):
           }
         } for t in zip(images)]
 
-    # openai.api_key = os.environ["OPENAI_API_KEY"]
-    # completion = openai.ChatCompletion.create(
-    #     model=model,
-    #     messages=[
-    #         {"role": "user", "content": image_payloads},
-    #         {"role": "user", "content": user_query},
-    #     ]
-    # )
-    # print(completion.choices[0].message.content.strip() )
-    # current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
-    current_result = {}
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+    completion = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "user", "content": image_payloads},
+            {"role": "user", "content": user_query},
+        ]
+    )
+    print(completion.choices[0].message.content.strip() )
+    current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
     return current_result
 
 def split_text_by_tokens(text, token_limit):
@@ -715,7 +715,7 @@ def chat(project_id):
 
 
 # convert XBRL-JSON of income statement to pandas dataframe
-def get_income_statement(xbrl_json):
+def get_data_from_xbrl(xbrl_json, datapoint):
     income_statement_store = {}
 
     # iterate over each US GAAP item in the income statement
@@ -726,7 +726,7 @@ def get_income_statement(xbrl_json):
         for fact in xbrl_json['StatementsOfIncome'][usGaapItem]:
             # only consider items without segment. not required for our analysis.
             if 'segment' not in fact:
-                index = fact['period']['startDate'] + '-' + fact['period']['endDate']
+                index = datetime.strptime(fact['period']['startDate'], '%Y-%m-%d').year
                 # ensure no index duplicates are created
                 if index not in indicies:
                     values.append(fact['value'])
@@ -736,7 +736,7 @@ def get_income_statement(xbrl_json):
 
     income_statement = pd.DataFrame(income_statement_store)
     # switch columns and rows so that US GAAP items are rows and each column header represents a date range
-    return income_statement.T 
+    return income_statement.T.transpose()[datapoint] 
 
 
 
@@ -748,17 +748,59 @@ def scrap_xbrl(project_id):
         data = request.get_json()
         url_10k = data['xbrl']
         company_name = data['name']
+        datapoint = data['datapoint']
         xbrl_json = xbrlApi.xbrl_to_json(htm_url=url_10k)
-        income_statement_google = get_income_statement(xbrl_json)
-        print("Income statement from " + name + "'s 2022 10-K filing as dataframe")
-        print('------------------------------------------------------------')
-        print(income_statement_google)
         return jsonify({"response": xbrl_json})
 
     except Exception as e:
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
+def extract_json_from_xbrl(xbrl):
+    try:
+
+        response_json = {
+            "2022": {
+              "Operating Income": get_data_from_xbrl(xbrl_json, 'OperatingIncomeLoss'),
+              "Profit Loss": get_data_from_xbrl(xbrl_json, 'ProfitLoss'),
+              "Net income": get_data_from_xbrl(xbrl_json, 'NetIncomeLossAvailableToCommonStockholdersBasic'),
+              "interest expense": 0,
+              "Income Tax": 0,
+              "Depreciation & Amortization": 0,
+              "Net Revenue": 0,
+              "name": "",
+              "ebitda": 0,
+              "annual revenue growth": 0,
+              "ebitda growth": 0,
+              "guidance": 0,
+              "year": "2022"
+            },
+            "2023": {
+              "Operating Income": 0,
+              "Net income": 0,
+              "interest expense": 0,
+              "Income Tax": 0,
+              "Depreciation & Amortization": 0,
+              "Net Revenue": 0,
+              "name": "",
+              "ebitda": 0,
+              "annual revenue growth": 0,
+              "ebitda growth": 0,
+              "guidance": 0,
+              "year": "2022",
+              "guidance": "",
+              "note": ""
+            }
+          }
+
+        datapoint = data['datapoint']
+        xbrl_json = xbrlApi.xbrl_to_json(htm_url=xbrl)
+        data_from_xbrl = get_data_from_xbrl(xbrl_json, datapoint)
+        return jsonify({"response": data_from_xbrl.to_dict()})
+
+    except Exception as e:
+        logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
+        return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
 
 
