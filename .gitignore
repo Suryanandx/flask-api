@@ -5,3 +5,7 @@ uploads
 content.txt
 *.jpg
 log.txt
+
+temp.py
+temp.js
+temp.html

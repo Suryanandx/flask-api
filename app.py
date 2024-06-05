@@ -250,39 +250,39 @@ def extract_text_and_save(filename):
 
 
 def extract_json_from_images(filename, user_query):
-    pdf_path = os.path.join("uploads", filename)    
+    # pdf_path = os.path.join("uploads", filename)    
     
-    cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS OF CASH FLOWS)|(?=.*CONSOLIDATED STATEMENTS OF INCOME)|(?=.*Interest expenses and other bank charges)|(?=.*Depreciation and Amortization)|(?=.*CONSOLIDATED BALANCE SHEETS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
-    print(cmd)
-    logging.info(cmd)
-    pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    logging.info(f'count of pages {pages}')
-    print(pages)
-    pages_list = pages.split(",")
-    del pages_list[-1]
-    print(pages_list)
-    if not pages:
-       logging.warning(f"No matching pages found in {pdf_path}")
-       return
-    images = pdf_to_image(pdf_path, pages_list)
-    image_payloads = [ {
-          "type": "image_url",
-          "image_url": {
-            "url": f"data:image/jpeg;base64,{t}"
-          }
-        } for t in zip(images)]
+    # cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS OF CASH FLOWS)|(?=.*CONSOLIDATED STATEMENTS OF INCOME)|(?=.*Interest expenses and other bank charges)|(?=.*Depreciation and Amortization)|(?=.*CONSOLIDATED BALANCE SHEETS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
+    # print(cmd)
+    # logging.info(cmd)
+    # pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    # logging.info(f'count of pages {pages}')
+    # print(pages)
+    # pages_list = pages.split(",")
+    # del pages_list[-1]
+    # print(pages_list)
+    # if not pages:
+    #    logging.warning(f"No matching pages found in {pdf_path}")
+    #    return
+    # images = pdf_to_image(pdf_path, pages_list)
+    # image_payloads = [ {
+    #       "type": "image_url",
+    #       "image_url": {
+    #         "url": f"data:image/jpeg;base64,{t}"
+    #       }
+    #     } for t in zip(images)]
 
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    completion = openai.ChatCompletion.create(
-        model=model,
-        messages=[
-            {"role": "user", "content": image_payloads},
-            {"role": "user", "content": user_query},
-        ]
-    )
-    print(completion.choices[0].message.content.strip() )
-    current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
-    return current_result
+    # openai.api_key = os.environ["OPENAI_API_KEY"]
+    # completion = openai.ChatCompletion.create(
+    #     model=model,
+    #     messages=[
+    #         {"role": "user", "content": image_payloads},
+    #         {"role": "user", "content": user_query},
+    #     ]
+    # )
+    # print(completion.choices[0].message.content.strip() )
+    # current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
+    return {"image": "Sample"}
 
 def split_text_by_tokens(text, token_limit):
     """Splits a text into segments, each with a number of tokens up to token_limit."""
@@ -710,37 +710,6 @@ def chat(project_id):
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
-
-
-
-
-# convert XBRL-JSON of income statement to pandas dataframe
-def get_data_from_xbrl(xbrl_json, datapoint):
-    income_statement_store = {}
-
-    # iterate over each US GAAP item in the income statement
-    for usGaapItem in xbrl_json['StatementsOfIncome']:
-        values = []
-        indicies = []
-
-        for fact in xbrl_json['StatementsOfIncome'][usGaapItem]:
-            # only consider items without segment. not required for our analysis.
-            if 'segment' not in fact:
-                index = datetime.strptime(fact['period']['startDate'], '%Y-%m-%d').year
-                # ensure no index duplicates are created
-                if index not in indicies:
-                    values.append(fact['value'])
-                    indicies.append(index)                    
-
-        income_statement_store[usGaapItem] = pd.Series(values, index=indicies) 
-
-    income_statement = pd.DataFrame(income_statement_store)
-    # switch columns and rows so that US GAAP items are rows and each column header represents a date range
-    return income_statement.T.transpose()[datapoint] 
-
-
-
-
 # Chat API route
 @app.route('/scrape-xbrl/<project_id>', methods=['POST'])
 def scrap_xbrl(project_id):
@@ -756,53 +725,34 @@ def scrap_xbrl(project_id):
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
-def extract_json_from_xbrl(xbrl):
-    try:
+def extract_year_and_value_in_array(data):
+    results = []
+    for entry in data:
+        if 'segment' not in entry:
+            end_date = entry['period']['endDate']
+            year = end_date.split('-')[0]
+            value = entry['value']
+            results.append({"year": year, "value": value})
+    return results
 
-        response_json = {
-            "2022": {
-              "Operating Income": get_data_from_xbrl(xbrl_json, 'OperatingIncomeLoss'),
-              "Profit Loss": get_data_from_xbrl(xbrl_json, 'ProfitLoss'),
-              "Net income": get_data_from_xbrl(xbrl_json, 'NetIncomeLossAvailableToCommonStockholdersBasic'),
-              "interest expense": 0,
-              "Income Tax": 0,
-              "Depreciation & Amortization": 0,
-              "Net Revenue": 0,
-              "name": "",
-              "ebitda": 0,
-              "annual revenue growth": 0,
-              "ebitda growth": 0,
-              "guidance": 0,
-              "year": "2022"
-            },
-            "2023": {
-              "Operating Income": 0,
-              "Net income": 0,
-              "interest expense": 0,
-              "Income Tax": 0,
-              "Depreciation & Amortization": 0,
-              "Net Revenue": 0,
-              "name": "",
-              "ebitda": 0,
-              "annual revenue growth": 0,
-              "ebitda growth": 0,
-              "guidance": 0,
-              "year": "2022",
-              "guidance": "",
-              "note": ""
-            }
-          }
-
-        datapoint = data['datapoint']
-        xbrl_json = xbrlApi.xbrl_to_json(htm_url=xbrl)
-        data_from_xbrl = get_data_from_xbrl(xbrl_json, datapoint)
-        return jsonify({"response": data_from_xbrl.to_dict()})
-
-    except Exception as e:
-        logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
-        return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
-
+def extract_json_from_xbrl(xbrl_json):
+    response = {
+        "Operating Income": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['OperatingIncomeLoss']),
+        "Profit Loss":  extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['ProfitLoss']),     
+        "Net income": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['NetIncomeLossAvailableToCommonStockholdersBasic']),
+        "interest expense": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['InterestIncomeExpenseNonoperatingNet']),
+        "Income Tax": extract_year_and_value_in_array(xbrl_json['StatementsOfCashFlows']['IncomeTaxesPaidNet']),
+        "Depreciation & Amortization": extract_year_and_value_in_array(xbrl_json['StatementsOfCashFlows']['DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts'])  ,            
+        "Net Revenue": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['RevenueFromContractWithCustomerExcludingAssessedTax']),
+        "name": xbrl_json['CoverPage']['EntityRegistrantName'],
+        "ebitda": 0,
+        "annual revenue growth": 0,
+        "ebitda growth": 0,
+        "guidance": 0,
+        "year": xbrl_json['CoverPage']['DocumentFiscalYearFocus'],
+    }
+    return response
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+    app.run(host='0.0.0.0', port=PORT, debug=True)
