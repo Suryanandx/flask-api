@@ -581,41 +581,70 @@ def upload_file():
         logging.error(f"Error uploading file: {str(e)}")
         return jsonify({"error": f"Error uploading file: {str(e)}"}), 500
 
+def scrape_and_get_reports(urls_array):
+	report_array = []
+	for url in urls_array:
+		try:
+			xbrl_json = xbrlApi.xbrl_to_json(htm_url=url)
+		except Exception as e:
+			print(f"Error extracting JSON from XBRL for URL {url}: {e}")
+			
+		response = extract_from_xbrl_json(xbrl_json)
+		report_array.append(response)
+
+	return report_array
+
 # Route to get all projects or add a new project
 @app.route('/projects', methods=['GET', 'POST'])
 def projects():
     if request.method == 'GET':
-        projects = db.projects.find()
-        projects = [{"_id": str(project["_id"]), **project} for project in projects]
-        return dumps({"projects": projects}), 200
+        query_result = db.projects.find()
+        projects = []
+        for project in query_result:
+            project_dict = {}
+            for key, value in project.items():
+                if key != "_id":
+                    project_dict[key] = value
+                else:
+                    project["_id"] = str(project["_id"])
+
+            projects.append(project_dict)
+            
+        return jsonify({"projects": projects}), 200
 
     elif request.method == 'POST':
         try:
             data = request.get_json()
-
             if 'name' not in data or 'description' not in data or 'comps' not in data:
                 return jsonify({"error": "Incomplete project information"}), 400
 
 
-
-
-            name = data['name']
-            description = data['description']
+            project_name = data['name']
+            project_description = data['description']
             comps = data['comps']
-            report = data['report']
+            # report = data['report'] # What this does?
+
+            # Comps will contain url field too
+            url_array = []
+            for comp in comps:
+                url_array.append(comp['url'])
+
+            report_array = scrape_and_get_reports(url_array)
 
             project_data = {
-                "name": name,
-                "description": description,
+                "name": project_name,
+                "description": project_description,
                 "comps": comps,
-                "report": report
+                "report": report_array
             }
 
-            db.projects.insert_one(project_data)
+            result = db.projects.insert_one(project_data)
 
-            return jsonify({"message": "Project created successfully"}), 201
+            return jsonify({ "data" : result }), 201
+
         except Exception as e:
             return jsonify({"error": f"project adding  error: {str(e)}"}), 500
+
 # Route to get a project by ID
 @app.route('/projects/<project_id>', methods=['GET'])
 def get_project_by_id(project_id):
@@ -735,7 +764,7 @@ def extract_year_and_value_in_array(data):
             results.append({"year": year, "value": value})
     return results
 
-def extract_json_from_xbrl(xbrl_json):
+def extract_from_xbrl_json(xbrl_json):
     response = {
         "Operating Income": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['OperatingIncomeLoss']),
         "Profit Loss":  extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['ProfitLoss']),     
