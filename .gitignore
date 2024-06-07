@@ -9,3 +9,5 @@ log.txt
 temp.py
 temp.js
 temp.html
+
+__pycache__/
