@@ -35,6 +35,8 @@ from datetime import datetime
 
 from sec_api import XbrlApi
 
+# Helper function
+from utils.xbrl_json_extracter import extract_from_xbrl_json
 
 nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
@@ -581,41 +583,109 @@ def upload_file():
         logging.error(f"Error uploading file: {str(e)}")
         return jsonify({"error": f"Error uploading file: {str(e)}"}), 500
 
+def scrape_and_get_reports(urls_array):
+	report_array = []
+	for url in urls_array:
+		try:
+			xbrl_json = xbrlApi.xbrl_to_json(htm_url=url)
+		except Exception as e:
+			print(f"Error extracting JSON from XBRL for URL {url}: {e}")
+			
+		response = extract_from_xbrl_json(xbrl_json)
+		report_array.append(response)
+
+	return report_array
+
 # Route to get all projects or add a new project
 @app.route('/projects', methods=['GET', 'POST'])
 def projects():
     if request.method == 'GET':
-        projects = db.projects.find()
-        projects = [{"_id": str(project["_id"]), **project} for project in projects]
-        return dumps({"projects": projects}), 200
+        query_result = db.projects.find()
+        projects = []
+        for project in query_result:
+            project_dict = {}
+            for key, value in project.items():
+                if key != "_id":
+                    project_dict[key] = value
+                else:
+                    project_dict["_id"] = str(value)
+
+            projects.append(project_dict)
+            
+        return jsonify({"projects": projects}), 200
 
     elif request.method == 'POST':
         try:
             data = request.get_json()
-
             if 'name' not in data or 'description' not in data or 'comps' not in data:
                 return jsonify({"error": "Incomplete project information"}), 400
 
-
-
-
-            name = data['name']
-            description = data['description']
+            project_name = data['name']
+            project_description = data['description']
             comps = data['comps']
             report = data['report']
 
+            # Comps will contain url field too
+            url_array = []
+            for comp in comps:
+                url_array.append(comp['url'])
+
+            scrapped_data = ["scrape_and_get_reports(url_array)"]
+
             project_data = {
-                "name": name,
-                "description": description,
+                "name": project_name,
+                "description": project_description,
                 "comps": comps,
+                "scrapped_data": scrapped_data,
                 "report": report
             }
 
-            db.projects.insert_one(project_data)
+            result = db.projects.insert_one(project_data);
+            inserted_id = result.inserted_id
 
-            return jsonify({"message": "Project created successfully"}), 201
+            inserted_document = db.projects.find_one({"_id": ObjectId(inserted_id)})
+            inserted_document["_id"] = str(inserted_document["_id"])
+
+            return jsonify({ "data" : inserted_document }), 201
+
         except Exception as e:
             return jsonify({"error": f"project adding  error: {str(e)}"}), 500
+
+@app.route('/update_report/<id>', methods=['PUT'])
+def update_report(id):
+    try:
+        data = request.get_json()
+        new_report = data['report']
+
+        if not new_report:
+            return jsonify({"error": "Report field is required"}), 400
+
+        # check if the id is valid
+        if not ObjectId.is_valid(id):
+            return jsonify({"error": "Invalid project ID"}), 400
+
+        # check if document is there with the given id
+        project = db.projects.find_one({"_id": ObjectId(id)})
+        if not project:
+            return jsonify({"error": f"Project with ID '{id}' not found"}), 404
+        
+        # update
+        result = db.projects.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"report": new_report}}
+        )
+
+        # success or not?
+        if result.modified_count == 0:
+            return jsonify({"error": f"Project with ID '{id}' not updated"}), 500
+        
+        updated_document = db.projects.find_one({"_id": ObjectId(id)})
+        updated_document["_id"] = str(updated_document["_id"])
+        
+        return jsonify(updated_document), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Route to get a project by ID
 @app.route('/projects/<project_id>', methods=['GET'])
 def get_project_by_id(project_id):
@@ -724,35 +794,6 @@ def scrap_xbrl(project_id):
     except Exception as e:
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
-
-def extract_year_and_value_in_array(data):
-    results = []
-    for entry in data:
-        if 'segment' not in entry:
-            end_date = entry['period']['endDate']
-            year = end_date.split('-')[0]
-            value = entry['value']
-            results.append({"year": year, "value": value})
-    return results
-
-def extract_json_from_xbrl(xbrl_json):
-    response = {
-        "Operating Income": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['OperatingIncomeLoss']),
-        "Profit Loss":  extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['ProfitLoss']),     
-        "Net income": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['NetIncomeLossAvailableToCommonStockholdersBasic']),
-        "interest expense": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['InterestIncomeExpenseNonoperatingNet']),
-        "Income Tax": extract_year_and_value_in_array(xbrl_json['StatementsOfCashFlows']['IncomeTaxesPaidNet']),
-        "Depreciation & Amortization": extract_year_and_value_in_array(xbrl_json['StatementsOfCashFlows']['DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts'])  ,            
-        "Net Revenue": extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['RevenueFromContractWithCustomerExcludingAssessedTax']),
-        "name": xbrl_json['CoverPage']['EntityRegistrantName'],
-        "ebitda": 0,
-        "annual revenue growth": 0,
-        "ebitda growth": 0,
-        "guidance": 0,
-        "year": xbrl_json['CoverPage']['DocumentFiscalYearFocus'],
-    }
-    return response
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
