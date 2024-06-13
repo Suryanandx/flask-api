@@ -35,8 +35,6 @@ from datetime import datetime
 
 from sec_api import XbrlApi
 
-# Helper function
-from utils.xbrl_json_extracter import extract_from_xbrl_json
 
 nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
@@ -62,268 +60,21 @@ app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app)
 db = mongo.db
 
-# Function to encode the image
-def encode_image(image_path):
-  with open(image_path, "rb") as image_file:
-    return base64.b64encode(image_file.read()).decode('utf-8')
 
-
-def parse_json_garbage(s):
-    s = s[next(idx for idx, c in enumerate(s) if c in "{["):]
-    try:
-        return json.loads(s)
-    except json.JSONDecodeError as e:
-        return json.loads(s[:e.pos])
-
-# Function to process a PDF file and extract text
-def process_pdf(file_path, pages):
-    try:
-        with open(file_path, 'rb') as f:
-            pdf_reader = PdfReader(f)
-            text = ""
-            for page_num in range(len(pdf_reader.pages)):                
-                if pages == "all" or str(page_num) in pages:
-                    text += pdf_reader.pages[page_num - 1].extract_text()
-        return text
-    except Exception as e:
-        logging.error(f"Error processing PDF: {str(e)}")
-        return None
-    
-def pdf_to_image(pdf_location, pages):
-    try:
-        print(pdf_location)
-        images = []
-        doc = fitz.open(pdf_location)
-        for count, page in enumerate(pages):
-           print(page)
-           loaded_page = doc.load_page(int(page) - 1)  # number of page
-           print("opend file")
-           pix = loaded_page.get_pixmap()
-           print("pix")
-           output = f"{os.path.splitext(pdf_location)[0]}-{count}.jpg"
-           print(output)
-           pix.save(output)
-           print("saved output")
-           base64_image = encode_image( f"{os.path.splitext(pdf_location)[0]}-{count}.jpg")
-           images.append(base64_image)
-        return images
-    except Exception as e:
-        logging.error(f"Error processing PDF: {str(e)}")
-        return None
-
-def total_pages(pdf):
-    with open(pdf, 'rb') as file:
-        pdf_object = PdfFileReader(file)
-        pages = ','.join([str(i) for i in range(pdf_object.getNumPages())])
-    return pages
-
-
-def extract_tables(pdf, pattern):
-    try:
-        cmd = f"pdfgrep -Pn '{pattern}' {pdf} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
-        print(cmd)
-        logging.info(cmd)
-        pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
-        logging.info(f'count of pages {pages}')
-        if not pages:
-            logging.warning(f"No matching pages found in {pdf}")
-            return
-
-        tabula.convert_into(pdf, f"{os.path.splitext(pdf)[0]}.csv", output_format="csv", pages="39")
-        # jsonoutput = tabula.read_pdf(pdf, output_format="json", pages="39")
-        # print(jsonoutput)
-        logging.info(f"Processed {pdf}")
-    except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
-        logging.error(f"Error processing {pdf}: {str(e)}")
-# Function to process a PDF file and store it in the 'uploads' folder
-def process_pdf_and_store(file):
-    try:
-        uploads_folder = os.path.join(os.getcwd(), "uploads")
-        if not os.path.exists(uploads_folder):
-            os.makedirs(uploads_folder)
-
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(uploads_folder, filename)
-        file.save(file_path)
-
-        text = process_pdf(file_path, "all")
-        if text is not None:
-            return filename
-        else:
-            os.remove(file_path)
-            return None
-    except Exception as e:
-        logging.error(f"Error processing PDF and storing: {str(e)}")
-        return None
-
-
-
-def tokenizer_length(string: str) -> int:
-    """Returns the number of tokens in a text string."""
-    return len(enc.encode(string))
-
-
-def split_text_by_sentences(text, token_limit):
-    """Splits a text into segments of complete sentences, each with a number of tokens up to token_limit."""
-    sentences = sent_tokenize(text)
-    current_count = 0
-    sentence_buffer = []
-    segments = []
-
-    for sentence in sentences:
-        # Estimate the token length of the sentence
-        sentence_length = tokenizer_length(sentence)
-
-        if current_count + sentence_length > token_limit:
-            if sentence_buffer:
-                segments.append(' '.join(sentence_buffer))
-                sentence_buffer = [sentence]
-                current_count = sentence_length
-            else:
-                # Handle the case where a single sentence exceeds the token_limit
-                segments.append(sentence)
-                current_count = 0
-        else:
-            sentence_buffer.append(sentence)
-            current_count += sentence_length
-
-    # Add the last segment if there's any
-    if sentence_buffer:
-        segments.append(' '.join(sentence_buffer))
-
-    return segments
-
-
-def extract_json(filename, user_query):
-    text = ""
-    pdf_path = os.path.join("uploads", filename)
-    
-    cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
-    print(cmd)
-    logging.info(cmd)
-    pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    logging.info(f'count of pages {pages}')
-    if not pages:
-       logging.warning(f"No matching pages found in {pdf_path}")
-       return
-    processed_text = process_pdf(pdf_path, pages)
-    if processed_text is not None:
-        text += processed_text
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    print(text)
-    completion = openai.ChatCompletion.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. Your expertise is firmly grounded in data-driven insights and comprehensive analysis. When presented with unsorted data, your primary objective is to meticulously filter out any extraneous or irrelevant components, including elements containing symbols like # and $. Furthermore, you excel at identifying and eliminating any HTML or XML tags and syntax within the data, streamlining it into a refined and meaningful form."},
-            {"role": "user", "content": text},
-            {"role": "assistant", "content": f"Question: {user_query}\nAnswer:"},
-        ]
-    )
-    print(completion.choices[0].message.content.strip() )
-    current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
-    return current_result
-
-
-
-def extract_text_and_save(filename):
-    text = ""
-    pdf_path = os.path.join("uploads", filename)
-    
-    cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS OF CASH FLOWS)|(?=.*CONSOLIDATED STATEMENTS OF INCOME)|(?=.*Interest expenses and other bank charges)|(?=.*Depreciation and Amortization)|(?=.*CONSOLIDATED BALANCE SHEETS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
-    print(cmd)
-    logging.info(cmd)
-    pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    logging.info(f'count of pages {pages}')
-    if not pages:
-       logging.warning(f"No matching pages found in {pdf_path}")
-       return
-    processed_text = process_pdf(pdf_path, pages)
-    if processed_text is not None:
-        text += processed_text
-    text_file = open(f"{os.path.splitext(pdf_path)[0]}.txt", "w")
-    text_file.write(text)
-    text_file.close()       
-    return text
-
-
-
-
-def extract_json_from_images(filename, user_query):
-    # pdf_path = os.path.join("uploads", filename)    
-    
-    # cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS OF CASH FLOWS)|(?=.*CONSOLIDATED STATEMENTS OF INCOME)|(?=.*Interest expenses and other bank charges)|(?=.*Depreciation and Amortization)|(?=.*CONSOLIDATED BALANCE SHEETS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
-    # print(cmd)
-    # logging.info(cmd)
-    # pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    # logging.info(f'count of pages {pages}')
-    # print(pages)
-    # pages_list = pages.split(",")
-    # del pages_list[-1]
-    # print(pages_list)
-    # if not pages:
-    #    logging.warning(f"No matching pages found in {pdf_path}")
-    #    return
-    # images = pdf_to_image(pdf_path, pages_list)
-    # image_payloads = [ {
-    #       "type": "image_url",
-    #       "image_url": {
-    #         "url": f"data:image/jpeg;base64,{t}"
-    #       }
-    #     } for t in zip(images)]
-
-    # openai.api_key = os.environ["OPENAI_API_KEY"]
-    # completion = openai.ChatCompletion.create(
-    #     model=model,
-    #     messages=[
-    #         {"role": "user", "content": image_payloads},
-    #         {"role": "user", "content": user_query},
-    #     ]
-    # )
-    # print(completion.choices[0].message.content.strip() )
-    # current_result = parse_json_garbage(completion.choices[0].message.content.strip() )
-    return {"image": "Sample"}
-
-def split_text_by_tokens(text, token_limit):
-    """Splits a text into segments, each with a number of tokens up to token_limit."""
-    words = text.split()
-    current_count = 0
-    word_buffer = []
-    segments = []
-
-    for word in words:
-        # Add a space for all but the first word in the buffer
-        test_text = ' '.join(word_buffer + [word]) if word_buffer else word
-        word_length = tokenizer_length(test_text)
-
-        if word_length > token_limit:
-            # If a single word exceeds the token_limit, it's added to its own segment
-            segments.append(word)
-            word_buffer.clear()
-            continue
-
-        if current_count + word_length > token_limit:
-            segments.append(' '.join(word_buffer))
-            word_buffer = [word]
-            current_count = tokenizer_length(word)
-        else:
-            word_buffer.append(word)
-            current_count = word_length
-
-    # Add the last segment if there's any
-    if word_buffer:
-        segments.append(' '.join(word_buffer))
-
-    return segments
-
+# Helper functions
+from utils.parse_json_utils import scrape_and_get_reports
+from utils.pdf_utils import process_pdf, process_pdf_and_store
+from utils.text_utils import extract_text_and_save, get_or_create_vector_store
+from utils.openai_utils import extract_json_from_images
 
 # Route for the root endpoint
 @app.route("/")
 @cross_origin()
 def helloWorld():
     return "Hello, API WORLD!"
+
+
+
 
 @app.route('/scrape-and-query', methods=['POST'])
 @cross_origin()
@@ -537,8 +288,6 @@ def scrape_and_query_pdf_save_to_txt(project_id):
         mainReport = extract_text_and_save(urls[0])
         compReport = extract_text_and_save(urls[1])
 
-
-
         db.projects.update_one(
         {"_id": ObjectId(project_id)},
         {"$set": {"report_txt": {
@@ -556,6 +305,7 @@ def scrape_and_query_pdf_save_to_txt(project_id):
 
     except Exception as e:
         return jsonify({"error": f"Scraping error: {str(e)}"}), 500
+
 
 
 
@@ -583,18 +333,8 @@ def upload_file():
         logging.error(f"Error uploading file: {str(e)}")
         return jsonify({"error": f"Error uploading file: {str(e)}"}), 500
 
-def scrape_and_get_reports(urls_array):
-	report_array = []
-	for url in urls_array:
-		try:
-			xbrl_json = xbrlApi.xbrl_to_json(htm_url=url)
-		except Exception as e:
-			print(f"Error extracting JSON from XBRL for URL {url}: {e}")
-			
-		response = extract_from_xbrl_json(xbrl_json)
-		report_array.append(response)
 
-	return report_array
+
 
 # Route to get all projects or add a new project
 @app.route('/projects', methods=['GET', 'POST'])
@@ -630,7 +370,8 @@ def projects():
             for comp in comps:
                 url_array.append(comp['url'])
 
-            scrapped_data = ["scrape_and_get_reports(url_array)"]
+            scrapped_data = scrape_and_get_reports(url_array);
+            print(scrapped_data)
 
             project_data = {
                 "name": project_name,
@@ -650,6 +391,9 @@ def projects():
 
         except Exception as e:
             return jsonify({"error": f"project adding  error: {str(e)}"}), 500
+
+
+
 
 @app.route('/update_report/<id>', methods=['PUT'])
 def update_report(id):
@@ -686,6 +430,9 @@ def update_report(id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+
+
 # Route to get a project by ID
 @app.route('/projects/<project_id>', methods=['GET'])
 def get_project_by_id(project_id):
@@ -709,25 +456,14 @@ def get_project_by_id(project_id):
 
 
 
+
 # Route to retrieve uploaded files
 @app.route('/uploads/<filename>', methods=['GET'])
 def get_uploaded_file(filename):
     return send_from_directory(os.path.join(os.getcwd(), "uploads"), filename)
 
-# Function to get or create the vector store for text embeddings
-def get_or_create_vector_store(chunks, store_name):
-    embeddings_file_path = f"{store_name}.pkl"
 
-    if os.path.exists(embeddings_file_path):
-        with open(embeddings_file_path, "rb") as f:
-            vector_store = pickle.load(f)
-    else:
-        embeddings = OpenAIEmbeddings()
-        vector_store = FAISS.from_texts(chunks, embedding=embeddings)
-        with open(embeddings_file_path, "wb") as f:
-            pickle.dump(vector_store, f)
 
-    return vector_store
 
 # Chat API route
 @app.route('/chat/<project_id>', methods=['POST'])
@@ -779,6 +515,9 @@ def chat(project_id):
     except Exception as e:
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
+
+
+
 
 # Chat API route
 @app.route('/scrape-xbrl/<project_id>', methods=['POST'])
