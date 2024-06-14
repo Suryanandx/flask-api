@@ -30,6 +30,14 @@ def get_ebitda(OperatingIncome, DepreciationAndAmortization):
 		ebitda.append({"year": OperatingIncome[i]['year'], "value": str(int(OperatingIncome[i]['value']) + int(DepreciationAndAmortization[i]['value']))})
 	return ebitda
 
+def get_growth_rate(data):
+	growth = []
+	for i in range(0, len(data)-1):
+		# Assuming data is sorted in descending order of consecutive years
+		growth.append({"year": data[i]['year'], "value": str(100*(int(data[i]['value']) - int(data[i+1]['value']))/int(data[i+1]['value'])) + " %"})
+
+	return growth
+
 
 def extract_from_xbrl_json(xbrl_json):
 	OperatingIncome = extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['OperatingIncomeLoss']);
@@ -41,8 +49,8 @@ def extract_from_xbrl_json(xbrl_json):
 	NetRevenue = extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['RevenueFromContractWithCustomerExcludingAssessedTax']);
 	name = xbrl_json['CoverPage']['EntityRegistrantName'];
 	ebitda = get_ebitda(OperatingIncome, DepreciationAndAmortization);
-	annual_revenue_growth = 0;
-	ebitda_growth = 0;
+	annual_revenue_growth = get_growth_rate(NetRevenue);
+	ebitda_growth = get_growth_rate(ebitda);
 	guidance = 0;
 	year = xbrl_json['CoverPage']['DocumentFiscalYearFocus'];
 	response = {
