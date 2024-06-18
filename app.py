@@ -32,9 +32,8 @@ import base64
 import fitz
 import pandas as pd 
 from datetime import datetime
-
 from sec_api import XbrlApi
-
+from user_db.user_routes import init_routes
 
 nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
@@ -59,8 +58,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app)
 db = mongo.db
-
-
+init_routes(app, db)
 # Helper functions
 from utils.parse_json_utils import scrape_and_get_reports
 from utils.pdf_utils import process_pdf, process_pdf_and_store
