@@ -119,7 +119,6 @@ chardet
 click 
 cmake==3.27.2
 comm==0.1.4
-contourpy==1.1.0
 cryptography 
 cycler==0.11.0
 dataclasses-json==0.5.14
