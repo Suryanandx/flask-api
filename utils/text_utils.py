@@ -1,13 +1,12 @@
 import base64
-import os
 import logging
-import subprocess
-from PyPDF2 import PdfReader
-from nltk.tokenize import sent_tokenize
-import tiktoken
+import os
 import pickle
+import subprocess
+
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
+from nltk.tokenize import sent_tokenize
 
 print(os.getcwd())
 

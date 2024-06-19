@@ -1,9 +1,11 @@
-import os
 import logging
+import os
 import subprocess
+
 import openai
 
-from utils.pdf_utils import process_pdf, pdf_to_image
+from utils.pdf_utils import process_pdf
+
 
 def parse_json_garbage(s):
     s = s[next(idx for idx, c in enumerate(s) if c in "{["):]

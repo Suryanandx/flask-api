@@ -1,43 +1,26 @@
+from flask import Flask, request, jsonify, send_from_directory
 import logging
+import os
+
+import openai
+import requests
+from bs4 import BeautifulSoup
+from bson import ObjectId
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
-from dotenv import load_dotenv
-from werkzeug.utils import secure_filename
-from bson import ObjectId
-from bson.json_util import dumps
-import os, sys
-import pickle
-from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.llms import OpenAI
-from langchain.chains.question_answering import load_qa_chain
 from langchain.callbacks import get_openai_callback
-import openai
-from bs4 import BeautifulSoup
-import requests
-from pathlib import Path
-import nltk
-from PyPDF2 import PdfFileReader
-import os
-import argparse
-import subprocess
-import logging
-import tabula
-import json
-from pdf2image import convert_from_path
-import base64
-import fitz
-import pandas as pd 
-from datetime import datetime
+from langchain.chains.question_answering import load_qa_chain
+from langchain.llms import OpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sec_api import XbrlApi
+
 from user_db.user_routes import init_routes
+
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
-nltk.download('punkt')
-from nltk.tokenize import sent_tokenize
+
 import tiktoken
 model = "gpt-4-turbo"
 enc = tiktoken.encoding_for_model(model)
