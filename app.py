@@ -46,9 +46,11 @@ load_dotenv()
 
 # Set your OpenAI API key from the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+os.environ["PYTHON_ENV"] = os.getenv("PYTHON_ENV")
 xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 
 PORT = os.getenv("PORT")
+PYTHON_ENV = os.getenv("PYTHON_ENV")
 
 # Initialize the Flask app and enable CORS
 app = Flask(__name__, static_folder='./public', static_url_path='/')
@@ -533,4 +535,8 @@ def scrap_xbrl(project_id):
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=PORT, debug=True)
+    if PYTHON_ENV == 'production':
+        context = ('cert.pem', 'key.pem')#certificate and key files
+        app.run(debug=True, port=PORT, ssl_context=context)
+    else:
+        app.run(host='0.0.0.0', port=PORT, debug=True)
