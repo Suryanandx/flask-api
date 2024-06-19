@@ -518,8 +518,4 @@ def scrap_xbrl(project_id):
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    if PYTHON_ENV == 'production':
-        context = ('cert.pem', 'key.pem')#certificate and key files
-        app.run(debug=True, port=PORT, ssl_context=context)
-    else:
-        app.run(host='0.0.0.0', port=PORT, debug=True)
+    app.run(host='0.0.0.0', port=PORT, debug=True)
