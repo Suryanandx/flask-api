@@ -34,6 +34,7 @@ import pandas as pd
 from datetime import datetime
 from sec_api import XbrlApi
 from user_db.user_routes import init_routes
+frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
 nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
@@ -50,7 +51,7 @@ xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 PORT = os.getenv("PORT")
 
 # Initialize the Flask app and enable CORS
-app = Flask(__name__)
+app = Flask(__name__, static_folder='./public', static_url_path='/')
 CORS(app, origins="*")
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -66,12 +67,11 @@ from utils.text_utils import extract_text_and_save, get_or_create_vector_store
 from utils.openai_utils import extract_json_from_images
 
 # Route for the root endpoint
-@app.route("/")
-@cross_origin()
-def helloWorld():
-    return "Hello, API WORLD!"
-
-
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+@app.errorhandler(404)
+def catch_all(path):
+    return app.send_static_file('index.html')
 
 
 @app.route('/scrape-and-query', methods=['POST'])

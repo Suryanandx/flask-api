@@ -5,6 +5,9 @@ uploads
 content.txt
 *.jpg
 log.txt
+public
+cert.pem
+key.pem
 
 temp.py
 temp.js
