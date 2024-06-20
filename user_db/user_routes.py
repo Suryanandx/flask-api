@@ -2,7 +2,7 @@ from flask import request
 from flask import jsonify
 
 def init_routes(app, db):
-    @app.route('/register', methods=['POST'])
+    @app.route('/api/users/create', methods=['POST'])
     def register():
         data = request.get_json()
         username = data.get('username')
@@ -20,7 +20,7 @@ def init_routes(app, db):
 
         return jsonify({'message': 'registered successfully'}), 201
 
-    @app.route('/login', methods=['POST'])
+    @app.route('/api/users/signin', methods=['POST'])
     def login():
         data = request.get_json()
         print(data)
@@ -37,7 +37,7 @@ def init_routes(app, db):
         else:
             return jsonify({'message': 'invalid email or password'}), 401
 
-    @app.route('/users', methods=['GET'])
+    @app.route('/api/users/users', methods=['GET'])
     def get_users():
         users = db.users.find()
 
@@ -49,7 +49,7 @@ def init_routes(app, db):
 
         return jsonify(user_list)
 
-    @app.route('/clear', methods=['DELETE'])
+    @app.route('/api/users/clear', methods=['DELETE'])
     def clear_db():
         db.users.drop()
         return jsonify({'message': 'Database cleared'}), 200

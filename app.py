@@ -59,7 +59,7 @@ def catch_all(path):
     return app.send_static_file('index.html')
 
 
-@app.route('/scrape-and-query', methods=['POST'])
+@app.route('/api/scrape-and-query', methods=['POST'])
 @cross_origin()
 def scrape_and_query():
     data = request.get_json()
@@ -108,7 +108,7 @@ def scrape_and_query():
 
 
 
-@app.route('/scrape-and-query-pdf/<project_id>', methods=['POST'])
+@app.route('/api/scrape-and-query-pdf/<project_id>', methods=['POST'])
 @cross_origin()
 def scrape_and_query_pdf(project_id):
     print("calling scrape_and_query_pdf")
@@ -253,7 +253,7 @@ def scrape_and_query_pdf(project_id):
 
 
 
-@app.route('/scrape-and-query-pdf-to-text/<project_id>', methods=['POST'])
+@app.route('/api/scrape-and-query-pdf-to-text/<project_id>', methods=['POST'])
 @cross_origin()
 def scrape_and_query_pdf_save_to_txt(project_id):
     print("calling scrape_and_query_pdf")
@@ -293,7 +293,7 @@ def scrape_and_query_pdf_save_to_txt(project_id):
 
 
 # Route to process and upload a file
-@app.route('/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 def upload_file():
     try:
         if 'file' not in request.files:
@@ -320,7 +320,7 @@ def upload_file():
 
 
 # Route to get all projects or add a new project
-@app.route('/projects', methods=['GET', 'POST'])
+@app.route('/api/projects', methods=['GET', 'POST'])
 def projects():
     if request.method == 'GET':
         query_result = db.projects.find()
@@ -378,7 +378,7 @@ def projects():
 
 
 
-@app.route('/update_report/<id>', methods=['PUT'])
+@app.route('/api/update_report/<id>', methods=['PUT'])
 def update_report(id):
     try:
         data = request.get_json()
@@ -417,7 +417,7 @@ def update_report(id):
 
 
 # Route to get a project by ID
-@app.route('/projects/<project_id>', methods=['GET'])
+@app.route('/api/projects/<project_id>', methods=['GET'])
 def get_project_by_id(project_id):
     try:
         if not ObjectId.is_valid(project_id):
@@ -441,7 +441,7 @@ def get_project_by_id(project_id):
 
 
 # Route to retrieve uploaded files
-@app.route('/uploads/<filename>', methods=['GET'])
+@app.route('/api/uploads/<filename>', methods=['GET'])
 def get_uploaded_file(filename):
     return send_from_directory(os.path.join(os.getcwd(), "uploads"), filename)
 
@@ -449,7 +449,7 @@ def get_uploaded_file(filename):
 
 
 # Chat API route
-@app.route('/chat/<project_id>', methods=['POST'])
+@app.route('/api/chat/<project_id>', methods=['POST'])
 def chat(project_id):
     try:
         data = request.get_json()
@@ -503,7 +503,7 @@ def chat(project_id):
 
 
 # Chat API route
-@app.route('/scrape-xbrl/<project_id>', methods=['POST'])
+@app.route('/api/scrape-xbrl/<project_id>', methods=['POST'])
 def scrap_xbrl(project_id):
     try:
         data = request.get_json()
