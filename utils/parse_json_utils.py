@@ -71,8 +71,6 @@ def extract_from_xbrl_json(xbrl_json):
 		"ebitda growth": ebitda_growth,
 		"year": year,
 	}
-	print("THIS IS BEFORE THE ADDTITION OF GUIDANCE\n")
-	print(response)
 	# this is used to generate guidance from the extracted data. is in the openai_utils.py file
 	guidance = generate_guidance(response)
 	response["guidance"] = guidance
