@@ -3,12 +3,15 @@ import os
 import logging
 import subprocess
 from dotenv import load_dotenv
+import openai
 from sec_api import XbrlApi
+from utils.openai_utils import generate_guidance
 
 load_dotenv()
 # Set your OpenAI API key from the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
+
 
 def extract_year_and_value_in_array(data):
     results = []
@@ -39,6 +42,8 @@ def get_growth_rate(data):
 	return growth
 
 
+# with clarification, i might need to change the prompt to datapromt2 if required.
+
 def extract_from_xbrl_json(xbrl_json):
 	OperatingIncome = extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['OperatingIncomeLoss']);
 	ProfitLoss = extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['ProfitLoss']);
@@ -51,7 +56,6 @@ def extract_from_xbrl_json(xbrl_json):
 	ebitda = get_ebitda(OperatingIncome, DepreciationAndAmortization);
 	annual_revenue_growth = get_growth_rate(NetRevenue);
 	ebitda_growth = get_growth_rate(ebitda);
-	guidance = 0;
 	year = xbrl_json['CoverPage']['DocumentFiscalYearFocus'];
 	response = {
 		"Operating Income": OperatingIncome,
@@ -65,9 +69,14 @@ def extract_from_xbrl_json(xbrl_json):
 		"ebitda": ebitda,
 		"annual revenue growth": annual_revenue_growth,
 		"ebitda growth": ebitda_growth,
-		"guidance": guidance,
 		"year": year,
 	}
+	print("THIS IS BEFORE THE ADDTITION OF GUIDANCE\n")
+	print(response)
+	# this is used to generate guidance from the extracted data. is in the openai_utils.py file
+	guidance = generate_guidance(response)
+	response["guidance"] = guidance
+
 	return response
 
 

@@ -122,7 +122,7 @@ def scrape_and_query():
 
 
 
-
+# this is where the info comes from
 @app.route('/scrape-and-query-pdf/<project_id>', methods=['POST'])
 @cross_origin()
 def scrape_and_query_pdf(project_id):
@@ -139,12 +139,12 @@ def scrape_and_query_pdf(project_id):
         return jsonify({"error": "URLs or query not provided"}), 400
     try:
         mainReport = extract_json_from_images(urls[0], user_query)
-
-        start_from = 1
+# remove loop for now
+#       start_from = 1
         compReport = []
-        for index, item in enumerate(urls[start_from:], start_from):
-            current_comp_report =   extract_json_from_images(item, user_query)     
-            compReport.append(current_comp_report)
+#       for index, item in enumerate(urls[start_from:], start_from):
+#           current_comp_report =   extract_json_from_images(item, user_query)     
+#           compReport.append(current_comp_report)
 
 
 
@@ -336,6 +336,7 @@ def upload_file():
 
 # Route to get all projects or add a new project
 @app.route('/projects', methods=['GET', 'POST'])
+@cross_origin()
 def projects():
     if request.method == 'GET':
         query_result = db.projects.find()
@@ -370,7 +371,7 @@ def projects():
 
             scrapped_data = scrape_and_get_reports(url_array);
             print(scrapped_data)
-
+# can move things here
             project_data = {
                 "name": project_name,
                 "description": project_description,
