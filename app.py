@@ -1,42 +1,26 @@
+from flask import Flask, request, jsonify, send_from_directory
 import logging
+import os
+
+import openai
+import requests
+from bs4 import BeautifulSoup
+from bson import ObjectId
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
-from dotenv import load_dotenv
-from werkzeug.utils import secure_filename
-from bson import ObjectId
-from bson.json_util import dumps
-import os, sys
-import pickle
-from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.llms import OpenAI
-from langchain.chains.question_answering import load_qa_chain
 from langchain.callbacks import get_openai_callback
-import openai
-from bs4 import BeautifulSoup
-import requests
-from pathlib import Path
-import nltk
-from PyPDF2 import PdfFileReader
-import os
-import argparse
-import subprocess
-import logging
-import tabula
-import json
-from pdf2image import convert_from_path
-import base64
-import fitz
-import pandas as pd 
-from datetime import datetime
+from langchain.chains.question_answering import load_qa_chain
+from langchain.llms import OpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sec_api import XbrlApi
+
 from user_db.user_routes import init_routes
 
-nltk.download('punkt')
-from nltk.tokenize import sent_tokenize
+frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
+
+
 import tiktoken
 model = "gpt-4-turbo"
 enc = tiktoken.encoding_for_model(model)
@@ -45,12 +29,14 @@ load_dotenv()
 
 # Set your OpenAI API key from the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+os.environ["PYTHON_ENV"] = os.getenv("PYTHON_ENV")
 xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 
 PORT = os.getenv("PORT")
+PYTHON_ENV = os.getenv("PYTHON_ENV")
 
 # Initialize the Flask app and enable CORS
-app = Flask(__name__)
+app = Flask(__name__, static_folder='./public', static_url_path='/')
 CORS(app, origins="*")
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -66,15 +52,14 @@ from utils.text_utils import extract_text_and_save, get_or_create_vector_store
 from utils.openai_utils import extract_json_from_images
 
 # Route for the root endpoint
-@app.route("/")
-@cross_origin()
-def helloWorld():
-    return "Hello, API WORLD!"
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+@app.errorhandler(404)
+def catch_all(path):
+    return app.send_static_file('index.html')
 
 
-
-
-@app.route('/scrape-and-query', methods=['POST'])
+@app.route('/api/scrape-and-query', methods=['POST'])
 @cross_origin()
 def scrape_and_query():
     data = request.get_json()
@@ -122,8 +107,8 @@ def scrape_and_query():
 
 
 
-# this is where the info comes from
-@app.route('/scrape-and-query-pdf/<project_id>', methods=['POST'])
+
+@app.route('/api/scrape-and-query-pdf/<project_id>', methods=['POST'])
 @cross_origin()
 def scrape_and_query_pdf(project_id):
     print("calling scrape_and_query_pdf")
@@ -268,7 +253,7 @@ def scrape_and_query_pdf(project_id):
 
 
 
-@app.route('/scrape-and-query-pdf-to-text/<project_id>', methods=['POST'])
+@app.route('/api/scrape-and-query-pdf-to-text/<project_id>', methods=['POST'])
 @cross_origin()
 def scrape_and_query_pdf_save_to_txt(project_id):
     print("calling scrape_and_query_pdf")
@@ -308,7 +293,7 @@ def scrape_and_query_pdf_save_to_txt(project_id):
 
 
 # Route to process and upload a file
-@app.route('/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 def upload_file():
     try:
         if 'file' not in request.files:
@@ -335,8 +320,7 @@ def upload_file():
 
 
 # Route to get all projects or add a new project
-@app.route('/projects', methods=['GET', 'POST'])
-@cross_origin()
+@app.route('/api/projects', methods=['GET', 'POST'])
 def projects():
     if request.method == 'GET':
         query_result = db.projects.find()
@@ -394,7 +378,7 @@ def projects():
 
 
 
-@app.route('/update_report/<id>', methods=['PUT'])
+@app.route('/api/update_report/<id>', methods=['PUT'])
 def update_report(id):
     try:
         data = request.get_json()
@@ -433,7 +417,7 @@ def update_report(id):
 
 
 # Route to get a project by ID
-@app.route('/projects/<project_id>', methods=['GET'])
+@app.route('/api/projects/<project_id>', methods=['GET'])
 def get_project_by_id(project_id):
     try:
         if not ObjectId.is_valid(project_id):
@@ -457,7 +441,7 @@ def get_project_by_id(project_id):
 
 
 # Route to retrieve uploaded files
-@app.route('/uploads/<filename>', methods=['GET'])
+@app.route('/api/uploads/<filename>', methods=['GET'])
 def get_uploaded_file(filename):
     return send_from_directory(os.path.join(os.getcwd(), "uploads"), filename)
 
@@ -465,7 +449,7 @@ def get_uploaded_file(filename):
 
 
 # Chat API route
-@app.route('/chat/<project_id>', methods=['POST'])
+@app.route('/api/chat/<project_id>', methods=['POST'])
 def chat(project_id):
     try:
         data = request.get_json()
@@ -519,7 +503,7 @@ def chat(project_id):
 
 
 # Chat API route
-@app.route('/scrape-xbrl/<project_id>', methods=['POST'])
+@app.route('/api/scrape-xbrl/<project_id>', methods=['POST'])
 def scrap_xbrl(project_id):
     try:
         data = request.get_json()

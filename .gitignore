@@ -5,9 +5,14 @@ uploads
 content.txt
 *.jpg
 log.txt
+public
+cert.pem
+key.pem
 
 temp.py
 temp.js
 temp.html
+
+.idea
 
 __pycache__/
