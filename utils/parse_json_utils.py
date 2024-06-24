@@ -1,7 +1,5 @@
-import json
 import os
-import logging
-import subprocess
+
 from dotenv import load_dotenv
 import openai
 from sec_api import XbrlApi
