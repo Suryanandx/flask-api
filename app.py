@@ -109,7 +109,6 @@ def scrape_and_query():
 
 
 
-
 # Route to process and upload a file
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
@@ -164,6 +163,7 @@ def projects():
             project_name = data['name']
             project_description = data['description']
             comps = data['comps']
+            report = data['report']
 
             # Comps will contain url field too
             url_array = []
@@ -171,11 +171,14 @@ def projects():
                 url_array.append(comp['url'])
 
             scrapped_data = scrape_and_get_reports(url_array);
+            print(scrapped_data)
+# can move things here
             project_data = {
                 "name": project_name,
                 "description": project_description,
                 "comps": comps,
-                "report": scrapped_data
+                "scrapped_data": scrapped_data,
+                "report": report
             }
 
             result = db.projects.insert_one(project_data);
