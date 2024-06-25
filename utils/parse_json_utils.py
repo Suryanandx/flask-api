@@ -1,9 +1,8 @@
 import os
-
 from dotenv import load_dotenv
 import openai
 from sec_api import XbrlApi
-from utils.openai_utils import generate_guidance
+from utils.openai_utils import generate_guidance, generate_expanalysis
 
 load_dotenv()
 # Set your OpenAI API key from the environment variable
@@ -72,6 +71,8 @@ def extract_from_xbrl_json(xbrl_json):
 	# this is used to generate guidance from the extracted data. is in the openai_utils.py file
 	guidance = generate_guidance(response)
 	response["guidance"] = guidance
+	note = generate_expanalysis(response)
+	response["note"] = note
 
 	return response
 
