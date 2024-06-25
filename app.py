@@ -108,188 +108,6 @@ def scrape_and_query():
 
 
 
-@app.route('/api/scrape-and-query-pdf/<project_id>', methods=['POST'])
-@cross_origin()
-def scrape_and_query_pdf(project_id):
-    print("calling scrape_and_query_pdf")
-    data = request.get_json()
-    urls = data.get('urls', [])
-    user_query = data.get('query')
-    project = db.projects.find_one({"_id": ObjectId(project_id)})
-    if not project:
-        return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
-    urls = project.get('filenames', [])
-
-    if not urls or not user_query:
-        return jsonify({"error": "URLs or query not provided"}), 400
-    try:
-        mainReport = extract_json_from_images(urls[0], user_query)
-# remove loop for now
-#       start_from = 1
-        compReport = []
-#       for index, item in enumerate(urls[start_from:], start_from):
-#           current_comp_report =   extract_json_from_images(item, user_query)     
-#           compReport.append(current_comp_report)
-
-
-
-        db.projects.update_one(
-        {"_id": ObjectId(project_id)},
-        {"$set": {"report_ai": {
-            "main": mainReport,
-            "comp": compReport,
-            "growth_chart": [
-                {
-                "name": "Amneal",
-                "value": 6.1
-                },
-                {
-                "name": "Teva",
-                "value": 6
-                },
-                {
-                "name": "Eagle",
-                "value": 8.7
-                },
-                {
-                "name": "ANI",
-                "value": 4.2
-                }
-            ],
-            "stats": [
-                {
-                "name": "Amneal",
-                "market_cap": 0.7,
-                "net_leverage": 2.1,
-                "sales": 4,
-                "ebitda_margin": 2.2
-                },
-                {
-                "name": "Teva",
-                "market_cap": 1.7,
-                "net_leverage": 4.2,
-                "sales": 6,
-                "ebitda_margin": 1.2
-                },
-                {
-                "name": "Eagle",
-                "market_cap": 0.9,
-                "net_leverage": 3.1,
-                "sales": 4.6,
-                "ebitda_margin": 1.2
-                },
-                {
-                "name": "ANI",
-                "market_cap": 1.7,
-                "net_leverage": 2.5,
-                "sales": 6,
-                "ebitda_margin": 2
-                }
-            ]
-      
-      
-        }}}
-        )
-        return jsonify({"response": {
-            "main": mainReport,
-            "comp": compReport,
-            "growth_chart": [
-                {
-                "name": "Amneal",
-                "value": 6.1
-                },
-                {
-                "name": "Teva",
-                "value": 6
-                },
-                {
-                "name": "Eagle",
-                "value": 8.7
-                },
-                {
-                "name": "ANI",
-                "value": 4.2
-                }
-            ],
-            "stats": [
-                {
-                "name": "Amneal",
-                "market_cap": 0.7,
-                "net_leverage": 2.1,
-                "sales": 4,
-                "ebitda_margin": 2.2
-                },
-                {
-                "name": "Teva",
-                "market_cap": 1.7,
-                "net_leverage": 4.2,
-                "sales": 6,
-                "ebitda_margin": 1.2
-                },
-                {
-                "name": "Eagle",
-                "market_cap": 0.9,
-                "net_leverage": 3.1,
-                "sales": 4.6,
-                "ebitda_margin": 1.2
-                },
-                {
-                "name": "ANI",
-                "market_cap": 1.7,
-                "net_leverage": 2.5,
-                "sales": 6,
-                "ebitda_margin": 2
-                }
-            ]
-      
-        } })
-
-    except requests.exceptions.RequestException as req_err:
-        return jsonify({"error": f"Request error: {str(req_err)}"}), 500
-
-    except Exception as e:
-        return jsonify({"error": f"Scraping error: {str(e)}"}), 500
-
-
-
-
-@app.route('/api/scrape-and-query-pdf-to-text/<project_id>', methods=['POST'])
-@cross_origin()
-def scrape_and_query_pdf_save_to_txt(project_id):
-    print("calling scrape_and_query_pdf")
-    data = request.get_json()
-    urls = data.get('urls', [])
-    user_query = data.get('query')
-    project = db.projects.find_one({"_id": ObjectId(project_id)})
-    if not project:
-        return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
-    urls = project.get('filenames', [])
-
-    if not urls or not user_query:
-        return jsonify({"error": "URLs or query not provided"}), 400
-    try:
-        mainReport = extract_text_and_save(urls[0])
-        compReport = extract_text_and_save(urls[1])
-
-        db.projects.update_one(
-        {"_id": ObjectId(project_id)},
-        {"$set": {"report_txt": {
-            "main": mainReport,
-            "comp": compReport
-        }}}
-        )
-        return jsonify({"response": {
-            "main": mainReport,
-            "comp": compReport
-        } })
-
-    except requests.exceptions.RequestException as req_err:
-        return jsonify({"error": f"Request error: {str(req_err)}"}), 500
-
-    except Exception as e:
-        return jsonify({"error": f"Scraping error: {str(e)}"}), 500
-
-
 
 
 # Route to process and upload a file
@@ -346,7 +164,6 @@ def projects():
             project_name = data['name']
             project_description = data['description']
             comps = data['comps']
-            report = data['report']
 
             # Comps will contain url field too
             url_array = []
@@ -354,14 +171,11 @@ def projects():
                 url_array.append(comp['url'])
 
             scrapped_data = scrape_and_get_reports(url_array);
-            print(scrapped_data)
-# can move things here
             project_data = {
                 "name": project_name,
                 "description": project_description,
                 "comps": comps,
-                "scrapped_data": scrapped_data,
-                "report": report
+                "report": scrapped_data
             }
 
             result = db.projects.insert_one(project_data);
