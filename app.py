@@ -46,7 +46,7 @@ mongo = PyMongo(app)
 db = mongo.db
 init_routes(app, db)
 # Helper functions
-from utils.parse_json_utils import scrape_and_get_reports
+from utils.parse_json_utils import scrape_and_get_reports, xbrl_to_json
 from utils.pdf_utils import process_pdf, process_pdf_and_store
 from utils.text_utils import extract_text_and_save, get_or_create_vector_store
 from utils.openai_utils import extract_json_from_images
@@ -170,12 +170,14 @@ def projects():
             for comp in comps:
                 url_array.append(comp['url'])
 
-            scrapped_data = scrape_and_get_reports(url_array);
+            # scrapped_data = scrape_and_get_reports(url_array);
+            print("url array", url_array)
+            scrapped_data = xbrl_to_json(url_array)
             project_data = {
                 "name": project_name,
                 "description": project_description,
                 "comps": comps,
-                "report": scrapped_data
+                "xbrl_json": scrapped_data
             }
 
             result = db.projects.insert_one(project_data);
@@ -251,6 +253,30 @@ def get_project_by_id(project_id):
         logging.error(f"Error retrieving project by ID: {str(e)}")
         return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
 
+
+@app.route('/api/projects/<project_id>/extract', methods=['GET'])
+def get_project_by_id_and_extract(project_id):
+    try:
+        if not ObjectId.is_valid(project_id):
+            return jsonify({"error": "Invalid project ID"}), 400
+
+        project = db.projects.find_one({"_id": ObjectId(project_id)})
+        scrapped_data = scrape_and_get_reports(project['xbrl_json']);
+        project['report'] = scrapped_data;
+        db.projects.update_one(
+            {"_id": ObjectId(project_id)},
+            {"$set": {"report": scrapped_data}}
+        )
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+
+        project["_id"] = str(project["_id"])
+
+        return jsonify({"project": project}), 200
+
+    except Exception as e:
+        logging.error(f"Error retrieving project by ID: {str(e)}")
+        return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
 
 
 
