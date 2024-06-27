@@ -17,6 +17,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sec_api import XbrlApi
 
 from user_db.user_routes import init_routes
+from utils.web_scrapper import scrape_site
 
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
@@ -49,7 +50,8 @@ init_routes(app, db)
 from utils.parse_json_utils import scrape_and_get_reports, xbrl_to_json
 from utils.pdf_utils import process_pdf, process_pdf_and_store
 from utils.text_utils import extract_text_and_save, get_or_create_vector_store
-from utils.openai_utils import extract_json_from_images
+from utils.openai_utils import extract_json_from_images, analysis_from_html
+
 
 # Route for the root endpoint
 @app.route('/', defaults={'path': ''})
@@ -74,30 +76,15 @@ def scrape_and_query():
 
         for url in urls:
             # Scrape each website with a timeout of 60 seconds
-            response = requests.get(url, timeout=60)
-            response.raise_for_status()  # Check for HTTP errors
-
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
-                scraped_data.append(scraped_text)
+            current_scrapped_text = scrape_site(url)
+            scraped_data.append(current_scrapped_text)
 
         # Join scraped data from all URLs into a single text
         all_scraped_data = ' '.join(scraped_data)
 
-        # Query OpenAI's Davinci Chat Model
-        openai.api_key = os.environ["OPENAI_API_KEY"]
-        ai_response = openai.ChatCompletion.create(
-            model="gpt-4-turbo-preview",
-            messages=[
-                {"role": "system", "content": "You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. Your expertise is firmly grounded in data-driven insights and comprehensive analysis. When presented with unsorted data, your primary objective is to meticulously filter out any extraneous or irrelevant components, including elements containing symbols like # and $. Furthermore, you excel at identifying and eliminating any HTML or XML tags and syntax within the data, streamlining it into a refined and meaningful form."},
-                {"role": "user", "content": all_scraped_data},
-                {"role": "assistant", "content": f"Question: {user_query}\nAnswer:"},
-            ],
-        )
-        answer = ai_response['choices'][0]['message']['content']
+        # answer = analysis_from_html(all_scraped_data, user_query)
 
-        return jsonify({"response": answer})
+        return jsonify({"response": all_scraped_data})
 
     except requests.exceptions.RequestException as req_err:
         return jsonify({"error": f"Request error: {str(req_err)}"}), 500
@@ -261,7 +248,7 @@ def get_project_by_id_and_extract(project_id):
             return jsonify({"error": "Invalid project ID"}), 400
 
         project = db.projects.find_one({"_id": ObjectId(project_id)})
-        scrapped_data = scrape_and_get_reports(project['xbrl_json']);
+        scrapped_data = scrape_and_get_reports(project['xbrl_json'], project_id);
         project['report'] = scrapped_data;
         db.projects.update_one(
             {"_id": ObjectId(project_id)},
@@ -275,6 +262,7 @@ def get_project_by_id_and_extract(project_id):
         return jsonify({"project": project}), 200
 
     except Exception as e:
+        print(e)
         logging.error(f"Error retrieving project by ID: {str(e)}")
         return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
 
@@ -319,7 +307,7 @@ def chat(project_id):
         vector_store = get_or_create_vector_store(chunks, project_id)
 
         docs = vector_store.similarity_search(query=query, k=3)
-        llm = OpenAI(temperature=0.7, model="gpt-3.5-turbo-instruct")
+        llm = OpenAI(temperature=0.7, model="gpt-4-turbo")
         chain = load_qa_chain(llm=llm, chain_type="stuff")
 
         with get_openai_callback() as cb:
