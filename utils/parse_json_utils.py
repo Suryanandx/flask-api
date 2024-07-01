@@ -126,7 +126,10 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 	}
 
 	# this is used to generate guidance from the extracted data. is in the openai_utils.py file
-	serp_scrapped_urls = serp_scrap_results(name + " Analysis " + year);
+	serp_scrapped_urls_method_a = serp_scrap_results(name + " Analysis " + year);
+	serp_scrapped_urls_method_b = serp_scrap_results(name + " most profitable products and countries ");
+	serp_scrapped_urls = serp_scrapped_urls_method_a + list(set(serp_scrapped_urls_method_b) - set(serp_scrapped_urls_method_a))
+
 	print(serp_scrapped_urls, 'serp_scrapped_urls')
 	scraped_data = []
 	for url in serp_scrapped_urls:

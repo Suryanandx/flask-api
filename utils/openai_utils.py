@@ -197,7 +197,17 @@ def analysis_10k_json(data, scrapped_data, project_id):
     Ensure that the financial guidance aligns with the company's overall strategic plan and is supported by reliable data and analysis. Review the guidance with key stakeholders, such as senior management and the board of directors, to validate assumptions and projections.
     Once finalized, communicate the financial guidance through appropriate channels, such as regulatory filings (e.g., SEC filings), investor presentations, press releases, or conference calls. Be prepared to address questions and provide additional context as needed.
     Continuously monitor actual performance against the guidance provided. If there are material changes or developments, consider updating the guidance to reflect new information or revised expectations.
-
+    
+    Here are some example guidance formats that you can use as a reference:
+    Example 1:
+    "Revenues of $15.7 - $16.3 billion. Non-GAAP operating income of $4.0-$4.5 billion. Adjusted EBITDA of $4.5 - $5.0 billion. Non-GAAP diluted EPS of $2.20 - $2.50",
+    Example 2:
+    the company expects net revenues between $520 million and $542 million, Cortrophin Gel Net Revenue in the range of $170 million - $180 million.
+    Example 3:
+    Royalty Pharma expects 2024 Portfolio Receipts to be between $2,600 million and $2,700 million. 2024 Portfolio Receipts guidance includes expected growth in royalty receipts of 5% to 9%.
+    The ideal length of the guidance is 1-3 sentences MAX and this is compulsory. Keep the information concise and to the point. The response should be based on the data provided. The response must also have quantitative values to support the guidance.
+    Ensure the quantitative values are realistic and accurately calculated based on typical industry standards and historical performance.
+    
     '''
 
     prompt += '''
@@ -220,6 +230,11 @@ def analysis_10k_json(data, scrapped_data, project_id):
     Summarize your findings and conclusions in a succinct manner. Provide a balanced view of the company's performance, acknowledging both strengths and areas for improvement.
     Be transparent about the assumptions and limitations of your analysis. Acknowledge any uncertainties or data gaps that may affect the accuracy of your conclusions.
     Keep your analysis up to date by monitoring the company's performance and reviewing new financial disclosures or market developments. Update your analysis as needed to reflect changes in the company's outlook or industry dynamics.
+    Here are some example of formats  of how you can write the expert analysis that you can use as a reference and keep it under 100 words:
+    Example 1: Based on analysts offering 12 month price targets for TEVA in the last 3 months. The average price target is $15.71 with a high estimate of $19 and a low estimate of $11
+    Example 2: analysts expect ANI Pharmaceuticals to post earnings of $0.97 per share. This would mark a year-over-year decline of 17.09%. Meanwhile, the Zacks Consensus Estimate for revenue is projecting net sales of $124.38 million, up \"16.47%\" from the year-ago period.
+    Example 3: Royalty Pharma's eight analysts are now forecasting revenues of US$2.68b in 2024. This would be a meaningful \"14%\" improvement in revenue compared to the last 12 months. Statutory earnings per share are expected to shrink 6.3% to US$2.38 in the same period
+   
     '''
 
 
