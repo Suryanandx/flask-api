@@ -142,30 +142,6 @@ def generate_expanalysis(data): #this is the function that will generate the exp
     return response.choices[0].text.strip(),
 
 
-def append_guidance(data, oldGuidance): #this is the function that will append information from the user to the guidance
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    prompt = f"The company {data['name']} has the following financial data:\n"
-    for key, value in data.items():
-        if key != 'name':
-            prompt += f"{key}: {value}\n"
-    prompt += '''...'''
-    response = openai.Completion.create(
-      model ="gpt-3.5-turbo-instruct",
-      prompt=prompt,
-      max_tokens=300,
-      temperature=0,
-      n = 1
-    )
-    
-    return response.choices[0].text.strip(),
-
-'''if __name__ == "__main__":
-    data = {'Operating Income': [{'year': '2023', 'value': '204374000'}, {'year': '2022', 'value': '-94928000'}, {'year': '2021', 'value': '152716000'}], 'Profit Loss': [{'year': '2023', 'value': '-48722000'}, {'year': '2022', 'value': '-254789000'}, {'year': '2021', 'value': '20170000'}], 'Net income': [{'year': '2023', 'value': '-83993000'}, {'year': '2022', 'value': '-129986000'}, {'year': '2021', 'value': '10624000'}], 'interest expense': [{'year': '2023', 'value': '-210629000'}, {'year': '2022', 'value': '-158377000'}, {'year': '2021', 'value': '-136325000'}], 'Income Tax': [{'year': '2023', 'value': '-2496000'}, {'year': '2022', 'value': '-12649000'}, {'year': '2021', 'value': '-15558000'}], 'Depreciation & Amortization': [{'year': '2023', 'value': '229400000'}, {'year': '2022', 'value': '240175000'}, {'year': '2021', 'value': '233406000'}], 'Net Revenue': [{'year': '2023', 'value': '2393607000'}, {'year': '2022', 'value': '2212304000'}, {'year': '2021', 'value': '2093669000'}], 'name': 'Amneal Pharmaceuticals, Inc.', 'ebitda': [{'year': '2023', 'value': '433774000'}, {'year': '2022', 'value': '145247000'}, {'year': '2021', 'value': '386122000'}], 'annual revenue growth': [{'year': '2023', 'value': '8.195211869616472 %'}, {'year': '2022', 'value': '5.666368466075583 %'}], 'ebitda growth': [{'year': '2023', 'value': '198.64575516189663 %'}, {'year': '2022', 'value': '-62.38313279222629 %'}], 'year': '2023'}
-    guidance_tuple = generate_guidance(data)
-    cleaned_guidance = tuple(s.replace("\\n", "\n") for s in guidance_tuple)
-    for item in cleaned_guidance:
-        print(item)'''
-
 
 def analysis_10k_json(data, scrapped_data, project_id):
     openai.api_key = os.environ["OPENAI_API_KEY"]
