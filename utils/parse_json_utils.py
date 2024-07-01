@@ -136,10 +136,11 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 
 	# Join scraped data from all URLs into a single text
 	all_scraped_data = ' '.join(scraped_data)
-	response['scrapped_data'] = all_scraped_data
 
 	# with AI
 	result_from_analysis = analysis_10k_json(response, all_scraped_data, project_id)
+	response['scrapped_data'] = all_scraped_data
+
 	print("result_from_analysis", result_from_analysis)
 	products_array = []
 	for product in result_from_analysis['products']:
