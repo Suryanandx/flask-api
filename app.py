@@ -50,7 +50,7 @@ init_routes(app, db)
 from utils.parse_json_utils import scrape_and_get_reports, xbrl_to_json
 from utils.pdf_utils import process_pdf, process_pdf_and_store
 from utils.text_utils import extract_text_and_save, get_or_create_vector_store
-from utils.openai_utils import extract_json_from_images, analysis_from_html
+from utils.openai_utils import append_guidance_analysis, extract_json_from_images, analysis_from_html
 
 
 # Route for the root endpoint
@@ -265,6 +265,44 @@ def get_project_by_id_and_extract(project_id):
         print(e)
         logging.error(f"Error retrieving project by ID: {str(e)}")
         return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
+
+
+
+
+@app.route('/api/projects/<project_id>/append', methods=['POST'])
+@cross_origin()
+def get_project_by_id_and_append(project_id):
+
+        if not ObjectId.is_valid(project_id):
+            return jsonify({"error": "Invalid project ID"}), 400
+
+        project = db.projects.find_one({"_id": ObjectId(project_id)})
+        request_json = request.get_json()
+        company_index = request_json['company_index']
+        new_guidance_from_user = request_json['new_guidance']
+        existing_guidance = project['report'][company_index]['guidance']
+        reponse_from_append = append_guidance_analysis(project, company_index, existing_guidance, new_guidance_from_user)
+        print(reponse_from_append)
+        '''new_report = project['report'][company_index]
+        new_report['guidance'] = reponse_from_append
+
+
+
+        db.projects.update_one(
+            {"_id": ObjectId(project_id)},
+            {"$set": {"report": new_report}}
+        )
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+
+        project["_id"] = str(project["_id"])
+
+        return jsonify({"project": project}), 200
+
+    except Exception as e:
+        print(e)
+        logging.error(f"Error retrieving project by ID: {str(e)}")
+        return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500'''
 
 
 

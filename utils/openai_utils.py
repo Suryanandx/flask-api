@@ -274,14 +274,14 @@ def analysis_from_html(data, prompt):
     return answer;
 
 
-def append_guidance_analysis(project, company_index, existing_guidance, new_guidance_from_user):
+def append_guidance_analysis(project, company_index, existing_guidance, new_guidance_from_user, project_id):
     openai.api_key = os.environ["OPENAI_API_KEY"]
     current_company_report = project['report'][company_index]
     prompt_context = f"The company {current_company_report['name']} has the following financial data:\n"
-    prompt_context += f"Operating Income is {current_company_report['Operating Income']}"
-    # add other financial information in here
-
-
+    for key, value in current_company_report.items():
+        if key != 'scrapped_data' and key != 'name':
+            prompt_context += f"{key}: {value}\n"
+    
     prompt_context += '''
     We have also extracted following text information from few websites:\n
     '''
@@ -327,7 +327,7 @@ def append_guidance_analysis(project, company_index, existing_guidance, new_guid
     )
     chunks = text_splitter.split_text(text=prompt_context)
     print("chunks ready")
-    vector_store = get_or_create_vector_store(chunks, project.id)
+    vector_store = get_or_create_vector_store(chunks, project_id)
     print("vector store ready")
     docs = vector_store.similarity_search(query=prompt, k=3)
     print("docs ready")
