@@ -272,7 +272,7 @@ def get_project_by_id_and_extract(project_id):
 @app.route('/api/projects/<project_id>/append', methods=['POST'])
 @cross_origin()
 def get_project_by_id_and_append(project_id):
-
+    try:
         if not ObjectId.is_valid(project_id):
             return jsonify({"error": "Invalid project ID"}), 400
 
@@ -283,7 +283,7 @@ def get_project_by_id_and_append(project_id):
         existing_guidance = project['report'][company_index]['guidance']
         reponse_from_append = append_guidance_analysis(project, company_index, existing_guidance, new_guidance_from_user, project_id)
         print(reponse_from_append)
-        '''new_report = project['report'][company_index]
+        new_report = project['report'][company_index]
         new_report['guidance'] = reponse_from_append
 
 
@@ -302,7 +302,7 @@ def get_project_by_id_and_append(project_id):
     except Exception as e:
         print(e)
         logging.error(f"Error retrieving project by ID: {str(e)}")
-        return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500'''
+        return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
 
 
 
