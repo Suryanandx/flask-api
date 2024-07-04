@@ -283,8 +283,8 @@ def get_project_by_id_and_append(project_id):
         existing_guidance = project['report'][company_index]['guidance']
         reponse_from_append = append_guidance_analysis(project, company_index, existing_guidance, new_guidance_from_user, project_id)
         print(reponse_from_append)
-        new_report = project['report'][company_index]
-        new_report['guidance'] = reponse_from_append
+        new_report = project['report']
+        new_report[company_index]['guidance'] = reponse_from_append
 
 
 

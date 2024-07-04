@@ -319,7 +319,7 @@ def append_guidance_analysis(project, company_index, existing_guidance, new_guid
     '''
 
 
-    prompt += f"In a previous analysis from openAI, we have recieved the following guidance {existing_guidance}, but we have found some errors in the response and we would like to reitirate the guidance with the following feedback {new_guidance_from_user}"
+    prompt += f"In a previous analysis from openAI, we have received the following guidance {existing_guidance}, but we have found some errors in the response and we would like to rectify the error in guidance with the following feedback {new_guidance_from_user}"
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
