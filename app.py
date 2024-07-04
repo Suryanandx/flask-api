@@ -20,6 +20,7 @@ from user_db.user_routes import init_routes
 from utils.web_scrapper import scrape_site
 
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
+import datetime as date
 
 
 import tiktoken
@@ -50,7 +51,7 @@ init_routes(app, db)
 from utils.parse_json_utils import scrape_and_get_reports, xbrl_to_json
 from utils.pdf_utils import process_pdf, process_pdf_and_store
 from utils.text_utils import extract_text_and_save, get_or_create_vector_store
-from utils.openai_utils import append_guidance_analysis, extract_json_from_images, analysis_from_html
+from utils.openai_utils import append_guidance_analysis, extract_json_from_images, analysis_from_html, append_note_analysis
 
 
 # Route for the root endpoint
@@ -269,7 +270,7 @@ def get_project_by_id_and_extract(project_id):
 
 
 
-@app.route('/api/projects/<project_id>/append', methods=['POST'])
+@app.route('/api/projects/<project_id>/append_guidance', methods=['POST'])
 @cross_origin()
 def get_project_by_id_and_append(project_id):
     try:
@@ -277,12 +278,15 @@ def get_project_by_id_and_append(project_id):
             return jsonify({"error": "Invalid project ID"}), 400
 
         project = db.projects.find_one({"_id": ObjectId(project_id)})
+
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+        
         request_json = request.get_json()
         company_index = request_json['company_index']
         new_guidance_from_user = request_json['new_guidance']
         existing_guidance = project['report'][company_index]['guidance']
         reponse_from_append = append_guidance_analysis(project, company_index, existing_guidance, new_guidance_from_user, project_id)
-        print(reponse_from_append)
         new_report = project['report']
         new_report[company_index]['guidance'] = reponse_from_append
 
@@ -292,8 +296,6 @@ def get_project_by_id_and_append(project_id):
             {"_id": ObjectId(project_id)},
             {"$set": {"report": new_report}}
         )
-        if not project:
-            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
 
         project["_id"] = str(project["_id"])
 
@@ -303,7 +305,42 @@ def get_project_by_id_and_append(project_id):
         print(e)
         logging.error(f"Error retrieving project by ID: {str(e)}")
         return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
+    
 
+    
+@app.route('/api/projects/<project_id>/append_note', methods=['POST'])
+@cross_origin()
+def get_project_by_id_and_append_note(project_id):
+    try:
+        if not ObjectId.is_valid(project_id):
+            return jsonify({"error": "Invalid project ID"}), 400
+        
+        project = db.projects.find_one({"_id": ObjectId(project_id)})
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+        
+        request_json = request.get_json()
+        company_index = request_json['company_index']
+        new_note_from_user = request_json['new_note']
+        existing_note = project['report'][company_index]['note']
+        reponse_from_append = append_note_analysis(project, company_index, existing_note, new_note_from_user, project_id)
+        new_report = project['report']
+        new_report[company_index]['note'] = reponse_from_append
+
+        db.projects.update_one(
+            {"_id": ObjectId(project_id)},
+            {"$set": {"report": new_report}}
+        )
+
+        project["_id"] = str(project["_id"])
+
+        return jsonify({"project": project}), 200
+    
+    except Exception as e:
+        print(e)
+        logging.error(f"Error retrieving project by ID: {str(e)}")
+        return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
+        
 
 
 # Route to retrieve uploaded files
@@ -311,6 +348,50 @@ def get_project_by_id_and_append(project_id):
 def get_uploaded_file(filename):
     return send_from_directory(os.path.join(os.getcwd(), "uploads"), filename)
 
+@app.route('/api/projects/report_changes', methods=['POST'])
+def guidance_change():
+    try:
+        data = request.get_json()
+        project_id = data['project_id']
+        email = data['email']
+        item = data['item'] # this varaible is used to identify the item that was changed
+        old_value = data['old_value']
+        new_value = data['new_new value']
+        companyName = data['companyName']  
+        timestamp = date.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        db.report_changes.insert_one({
+        "project_id": project_id,
+        "email": email,
+        "companyName": companyName,
+        "item": item,
+        "old_value": old_value,
+        "new_value": new_value,
+        "timestamp": timestamp
+        })
+        
+        return jsonify({"message": "Report change recorded successfully"}), 201
+
+    except Exception as e:
+        return jsonify({"error": f"Error recording report change: {str(e)}"}), 500
+
+
+@app.route('/api/projects/<project_id>/get_report_changes', methods=['POST'])     
+def get_report_changes(project_id):
+    try:
+        if not ObjectId.is_valid(project_id):
+            return jsonify({"error": "Invalid project ID"}), 400
+        
+        changes = db.report_changes.find({"project_id": project_id})
+        changes_list = []
+        for change in changes:
+            change["_id"] = str(change["_id"])
+            changes_list.append(change)
+
+        return jsonify({"changes": changes_list}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Error retrieving report changes: {str(e)}"}), 500
 
 
 
