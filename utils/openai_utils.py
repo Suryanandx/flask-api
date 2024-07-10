@@ -111,7 +111,7 @@ def generate_guidance(data): #this is the function that will generate the guidan
     
     return response.choices[0].text.strip(),
 
-def generate_expanalysis(data): #this is the function that will generate the expert analysis for the company
+def generate_expanalysis(data, ): #this is the function that will generate the expert analysis for the company
     openai.api_key = os.environ["OPENAI_API_KEY"]
     prompt = f"The company {data['name']} has the following financial data:\n"
     for key, value in data.items():
@@ -271,7 +271,7 @@ def analysis_from_html(data, prompt):
         ],
     )
     answer = ai_response['choices'][0]['message']['content']
-    return answer;
+    return answer
 
 
 def append_guidance_analysis(project, company_index, existing_guidance, new_guidance_from_user, project_id):
@@ -314,12 +314,67 @@ def append_guidance_analysis(project, company_index, existing_guidance, new_guid
     Example 3:
     Royalty Pharma expects 2024 Portfolio Receipts to be between $2,600 million and $2,700 million. 2024 Portfolio Receipts guidance includes expected growth in royalty receipts of 5% to 9%.
     The ideal length of the guidance is 1-3 sentences MAX and this is compulsory. Keep the information concise and to the point. The response should be based on the data provided. The response must also have quantitative values to support the guidance.
-    Ensure the quantitative values are realistic and accurately calculated based on typical industry standards and historical performance.
-
+    Ensure the quantitative values are realistic and accurately calculated based on typical industry standards and historical performance. 
+    And do not add any statements like " Thank you for feedback" or "We will take your feedback into consideration" in the guidance or anything that is like 
+    "We appreciate your feedback and are committed to providing accurate and reliable guidance for our shareholders. Thank you for bringing this to our attention." This is a report not a communication or chatbot response.
+    If you do find such statements in the guidance, please remove them.
     '''
 
 
     prompt += f"In a previous analysis from openAI, we have received the following guidance {existing_guidance}, but we have found some errors in the response and we would like to rectify the error in guidance with the following feedback {new_guidance_from_user}"
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len
+    )
+    chunks = text_splitter.split_text(text=prompt_context)
+    print("chunks ready")
+    vector_store = get_or_create_vector_store(chunks, project_id)
+    print("vector store ready")
+    docs = vector_store.similarity_search(query=prompt, k=3)
+    print("docs ready")
+    llm = OpenAI(temperature=0.7, model="gpt-3.5-turbo-instruct")
+    print("llm ready")
+    chain = load_qa_chain(llm=llm, chain_type="stuff")
+    print("chain loaded")
+
+    with get_openai_callback() as cb:
+        response = chain.run(input_documents=docs, question=prompt)
+
+    print(response, 'AI response')
+    return response
+
+def append_note_analysis(project, company_index, existing_note, new_note_from_user, project_id):
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+    current_company_report = project['report'][company_index]
+    prompt_context = f"The company {current_company_report['name']} has the following financial data:\n"
+    for key, value in current_company_report.items():
+        if key != 'scrapped_data' and key != 'name':
+            prompt_context += f"{key}: {value}\n"
+
+    prompt_context += '''
+    We have also extracted following text information from few websites:\n
+    '''
+
+    prompt_context += current_company_report['scrapped_data']
+
+    prompt = '''You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. For your information, Guidance is an informal report a public company issues to shareholders detailing the earnings it expects to achieve in the upcoming fiscal quarter or year ahead. Based only on this data,
+       what is the guidance for the company's financial performance for the next year? Store the answer to this question in the "guidance" property of the response JSON as a string.
+       '''
+    prompt += '''When writing the analysis, consider the following details:
+    Keep the information concise and to the point. The response should be based on the data provided. The response must also have quantitative values to support the response. Ensure the quantitative values are realistic and accurately calculated based on typical industry standards and historical performance.
+    Market Conditions: Discuss any market trends or economic factors that might influence the company's performance.
+    Specific Financial Metrics: Include key financial metrics such as revenues, EBITDA, net income, and EPS.
+    Factors Affecting Performance: Mention any significant factors such as new product launches, regulatory changes, cost management strategies, or investment plans.
+    Comparative Analysis: Compare the companys projections with industry averages or competitors if applicable.
+    
+    Here are some example of formats  of how you can write the expert analysis that you can use as a reference and keep it under 100 words:
+    Example 1: Based on analysts offering 12 month price targets for TEVA in the last 3 months. The average price target is $15.71 with a high estimate of $19 and a low estimate of $11
+    Example 2: analysts expect ANI Pharmaceuticals to post earnings of $0.97 per share. This would mark a year-over-year decline of 17.09%. Meanwhile, the Zacks Consensus Estimate for revenue is projecting net sales of $124.38 million, up \"16.47%\" from the year-ago period.
+    Example 3: Royalty Pharma's eight analysts are now forecasting revenues of US$2.68b in 2024. This would be a meaningful \"14%\" improvement in revenue compared to the last 12 months. Statutory earnings per share are expected to shrink 6.3% to US$2.38 in the same period
+     '''
+    
+    prompt += f"In a previous analysis from openAI, we have received the following expert analysis notes: {existing_note}, but we have found some errors or want to add more information in the response. Therefore we would like to rectify the error or make changes in expert analysis notes with the following feedback {new_note_from_user}"
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
