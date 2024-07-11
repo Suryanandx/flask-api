@@ -1,3 +1,5 @@
+import os
+import openai
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -8,7 +10,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from pyvirtualdisplay import Display
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 from fake_useragent import UserAgent
+from utils.text_utils import get_or_create_vector_store, split_text_by_tokens
+from langchain.callbacks import get_openai_callback
+from langchain.chains.question_answering import load_qa_chain
+from langchain.llms import OpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
 no_of_pages_serp = 1
 no_of_results_serp = 3
 
@@ -31,11 +41,15 @@ def scrape_site(url):
     html = driver.find_element(By.XPATH, "/html/body").text
     # soup = BeautifulSoup(html, 'html.parser')
     # scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
+    print(html, 'html')
+    refined_text = __refine_text(html)
+    print(refined_text)
     driver.quit()
-    return html
+    return refined_text
 
 
 def build_web_driver():
+    # Set up WebDriver (1)
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
     display = Display(visible=0, size=(1920, 1080))
@@ -49,6 +63,7 @@ def build_web_driver():
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument(f'user-agent={userAgent}')
     driver = webdriver.Chrome(options=options)
+
     return driver
 
 
@@ -95,3 +110,49 @@ def serp_scrap_results(query):
     driver.quit()
     return url_array
     # Close the WebDriver
+
+def __refine_text(text):
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+    prompt_context = '''
+    We have also extracted following text information from a website:\n
+    '''
+    prompt_context += text
+
+    prompt += '''\n
+       You are a highly experienced text analyst with a rich history of over 30 years in the field. The company you work for has acqurired textual information that needs to be cleaned and refined. The text is extracted from various websites and contains irrelevant information. Your task is to refine the text and provide a clean version of the text.
+       Specifically, if there are the following types of conent please remove them:
+        1. **Advertisements and Promotional Content**: Any content aimed at selling products, services, or promoting the website itself.
+        2. **Navigation Links and Menus**: Links to other sections of the website that do not add to the main content.
+        3. **Disclaimers and Legal Notices**: Standard disclaimers or legal information not pertinent to the main content.
+        4. **Generic Greetings and Intros**: Standard greetings, intros, or welcome messages that do not contribute to the core information.
+        5. **Social Media Links and Share Buttons**: Links to follow on social media or share the content.
+        6. **Subscription Prompts**: Requests for readers to subscribe to newsletters or updates.
+        7. **Contact Information**: General contact information that does not relate to the main content.
+        8. **Boilerplate Text**: Standardized text that is repeated across multiple pages without specific relevance to the current content.
+        
+        However, it is crucial that you retain all important information related to the main topic.That includes facts, figures, statistics, analysis, and any other relevant data. If not all the types of content mentioned above are present, you can ignore the ones that are not relevant. But do not remove any relevant content in order to follow the above rules.
+        Also the most important rule is to ensure that the refined text follows the same structure and flow as the original text. There shouldnt be any change in the meaning of the text.\n
+        Do not try to rewrite or rearrange or paraphrase the text. Just remove the irrelevant content. This is not a creative writing task, just a task to remove irrelevant content.
+       '''
+    
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len
+    )
+
+    chunks = text_splitter.split_text(text=prompt_context)
+    print("chunks ready")
+    vector_store = get_or_create_vector_store(chunks, store_name="vector_store")
+    print("vector store ready")
+    docs = vector_store.similarity_search(query=prompt, k=3)
+    print("docs ready")
+    llm = OpenAI(temperature=0.7, model="gpt-3.5-turbo-instruct")
+    print("llm ready")
+    chain = load_qa_chain(llm=llm, chain_type="stuff")
+    print("chain loaded")
+
+    with get_openai_callback() as cb:
+        response = chain.run(input_documents=docs, question=prompt)
+
+    return response
