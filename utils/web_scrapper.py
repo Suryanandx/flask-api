@@ -20,52 +20,70 @@ from langchain.llms import OpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 no_of_pages_serp = 1
-no_of_results_serp = 3
+no_of_results_serp = 10
 
 def scrape_site(url):
-    print("scrapping url", url)
-    driver = build_web_driver()
-    print("scrapping url 1", url)
-    driver.get(url)
-    print("scrapping url 2", url)
+    scraped_text = ""
     try:
-        print("scrapping url 3", url)
-        element_present = EC.presence_of_element_located((By.XPATH, "/html/body"))
-        print("scrapping url 4", url)
-        WebDriverWait(driver, 10).until(element_present)
+        print("scrapping url", url)
+        driver = build_web_driver()
+        if driver is not None:
+            print("scrapping url 1", url)
+            driver.get(url)
+            print("scrapping url 2", url)
+            print("scrapping url 3", url)
+            element_present = EC.presence_of_element_located((By.XPATH, "/html/body"))
+            print("scrapping url 4", url)
+            WebDriverWait(driver, 10).until(element_present)
+            html = driver.find_element(By.XPATH, "/html/body").text
+            soup = BeautifulSoup(html, 'html.parser')
+            scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
+            print("scrapping url 5", url)
+            driver.quit()
+        else:
+            scraped_text += "NA"
     except TimeoutException:
-        print("scrapping url 5", url)
         print("Timed out waiting for page to load")
-        return "NA"
+        scraped_text += "NA"
     print("scrapping completed")
-    html = driver.find_element(By.XPATH, "/html/body").text
-    # soup = BeautifulSoup(html, 'html.parser')
-    # scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
-    print(html, 'html')
-    refined_text = __refine_text(html)
-    print(refined_text)
-    driver.quit()
-    return refined_text
+
+    # print(html, 'html')
+    # refined_text = __refine_text(html)
+    # print(refined_text)
+    return scraped_text
 
 
 def build_web_driver():
-    # Set up WebDriver (1)
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
-    display = Display(visible=0, size=(1920, 1080))
-    display.start()
-    ua = UserAgent()
-    userAgent = ua.random
-    print(userAgent)
-    options.add_argument(f'user-agent={userAgent}')
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument(f'user-agent={userAgent}')
-    driver = webdriver.Chrome(options=options)
+    try:
+        # Set up WebDriver (1)
+        options = webdriver.ChromeOptions()
+        options.add_argument("--start-maximized")
+        display = Display(visible=0, size=(1920, 1080))
+        display.start()
+        ua = UserAgent()
+        userAgent = ua.random
+        print(userAgent)
+        options.add_argument(f'user-agent={userAgent}')
+        options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument(f'user-agent={userAgent}')
+        options.add_argument("--no-sandbox")
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--window-size=1420,1080')
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
+        options.add_argument("--disable-notifications")
+        options.add_argument("--remote-debugging-port=9222")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        options.add_experimental_option("excludeSwitches", ["disable-popup-blocking"])
 
-    return driver
+        driver = webdriver.Chrome(options=options)
 
+        return driver
+    except TimeoutException:
+        print("Timed out waiting for page to load")
+        return None
 
 def serp_scrap_results(query):
 
@@ -118,9 +136,9 @@ def __refine_text(text):
     '''
     prompt_context += text
 
-    prompt += '''
-       You are a highly experienced text analyst with a rich history of over 30 years in the field. The company you work for has acqurired textual information that needs to be cleaned and refined. The text is extracted from various websites and contains irrelevant information. The task is to refine the text and provide a clean version of the text.
-       Specifically, if there are the following types of content please remove them:
+    prompt = '''\n
+       You are a highly experienced text analyst with a rich history of over 30 years in the field. The company you work for has acqurired textual information that needs to be cleaned and refined. The text is extracted from various websites and contains irrelevant information. Your task is to refine the text and provide a clean version of the text.
+       Specifically, if there are the following types of conent please remove them:
         1. **Advertisements and Promotional Content**: Any content aimed at selling products, services, or promoting the website itself.
         2. **Navigation Links and Menus**: Links to other sections of the website that do not add to the main content.
         3. **Disclaimers and Legal Notices**: Standard disclaimers or legal information not pertinent to the main content.
