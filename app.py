@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import logging
 import os
+import time
 
 import openai
 import requests
@@ -250,10 +251,14 @@ def get_project_by_id_and_extract(project_id):
 
         project = db.projects.find_one({"_id": ObjectId(project_id)})
         scrapped_data = scrape_and_get_reports(project['xbrl_json'], project_id);
-        project['report'] = scrapped_data;
+        new_report = {
+            "timestamp": time.time(),
+            "report": scrapped_data
+        }
+        project['report'].append(new_report);
         db.projects.update_one(
             {"_id": ObjectId(project_id)},
-            {"$set": {"report": scrapped_data}}
+            {"$set": {"report": project['report']}}
         )
         if not project:
             return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404

@@ -143,7 +143,7 @@ def generate_expanalysis(data, ): #this is the function that will generate the e
 
 
 
-def analysis_10k_json(data, scrapped_data, project_id):
+def analysis_10k_json(data, scrapped_data, project_id, company_name):
     openai.api_key = os.environ["OPENAI_API_KEY"]
     prompt_context = f"The company {data['name']} has the following financial data:\n"
     for key, value in data.items():
@@ -239,7 +239,7 @@ def analysis_10k_json(data, scrapped_data, project_id):
     )
     chunks = text_splitter.split_text(text=prompt_context)
     print("chunks ready")
-    vector_store = get_or_create_vector_store(chunks, project_id)
+    vector_store = get_or_create_vector_store(chunks, str(project_id) + company_name)
     print("vector store ready")
     docs = vector_store.similarity_search(query=prompt, k=3)
     print("docs ready")

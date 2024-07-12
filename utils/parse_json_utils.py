@@ -134,14 +134,18 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 	scraped_data = []
 	for url in serp_scrapped_urls:
 		# Scrape each website with a timeout of 60 seconds
-		current_scrapped_text = scrape_site(url)
-		scraped_data.append(current_scrapped_text)
+		try:
+			current_scrapped_text = scrape_site(url)
+			scraped_data.append(current_scrapped_text)
+		except Exception as e:
+			print("Couldn't scrap the site")
+			scraped_data.append("NA")
 
 	# Join scraped data from all URLs into a single text
 	all_scraped_data = ' '.join(scraped_data)
 
 	# with AI
-	result_from_analysis = analysis_10k_json(response, all_scraped_data, project_id)
+	result_from_analysis = analysis_10k_json(response, all_scraped_data, project_id, name)
 	response['scrapped_data'] = all_scraped_data
 
 	print("result_from_analysis", result_from_analysis)
