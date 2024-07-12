@@ -118,9 +118,9 @@ def __refine_text(text):
     '''
     prompt_context += text
 
-    prompt += '''\n
-       You are a highly experienced text analyst with a rich history of over 30 years in the field. The company you work for has acqurired textual information that needs to be cleaned and refined. The text is extracted from various websites and contains irrelevant information. Your task is to refine the text and provide a clean version of the text.
-       Specifically, if there are the following types of conent please remove them:
+    prompt += '''
+       You are a highly experienced text analyst with a rich history of over 30 years in the field. The company you work for has acqurired textual information that needs to be cleaned and refined. The text is extracted from various websites and contains irrelevant information. The task is to refine the text and provide a clean version of the text.
+       Specifically, if there are the following types of content please remove them:
         1. **Advertisements and Promotional Content**: Any content aimed at selling products, services, or promoting the website itself.
         2. **Navigation Links and Menus**: Links to other sections of the website that do not add to the main content.
         3. **Disclaimers and Legal Notices**: Standard disclaimers or legal information not pertinent to the main content.
@@ -130,7 +130,7 @@ def __refine_text(text):
         7. **Contact Information**: General contact information that does not relate to the main content.
         8. **Boilerplate Text**: Standardized text that is repeated across multiple pages without specific relevance to the current content.
         
-        However, it is crucial that you retain all important information related to the main topic.That includes facts, figures, statistics, analysis, and any other relevant data. If not all the types of content mentioned above are present, you can ignore the ones that are not relevant. But do not remove any relevant content in order to follow the above rules.
+        However, it is crucial to retain all important information related to the main topic.That includes facts, figures, statistics, analysis, and any other relevant data. If not all the types of content mentioned above are present, can be ignore the ones that are not relevant. But do not remove any relevant content in order to follow the above rules.
         Also the most important rule is to ensure that the refined text follows the same structure and flow as the original text. There shouldnt be any change in the meaning of the text.\n
         Do not try to rewrite or rearrange or paraphrase the text. Just remove the irrelevant content. This is not a creative writing task, just a task to remove irrelevant content.
        '''
