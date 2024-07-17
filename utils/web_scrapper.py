@@ -13,11 +13,7 @@ from pyvirtualdisplay import Display
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from fake_useragent import UserAgent
-from utils.text_utils import get_or_create_vector_store, split_text_by_tokens
-from langchain.callbacks import get_openai_callback
-from langchain.chains.question_answering import load_qa_chain
-from langchain.llms import OpenAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+
 
 no_of_pages_serp = 1
 no_of_results_serp = 10
@@ -36,10 +32,11 @@ def scrape_site(url):
             print("scrapping url 4", url)
             WebDriverWait(driver, 10).until(element_present)
             html = driver.find_element(By.XPATH, "/html/body").text
-            soup = BeautifulSoup(html, 'html.parser')
-            scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
+            #soup = BeautifulSoup(html, 'html.parser')
+            #scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
             print("scrapping url 5", url)
             driver.quit()
+            scraped_text = refine_text(html)
         else:
             scraped_text += "NA"
     except TimeoutException:
@@ -77,9 +74,7 @@ def build_web_driver():
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         options.add_experimental_option("excludeSwitches", ["disable-popup-blocking"])
-
         driver = webdriver.Chrome(options=options)
-
         return driver
     except TimeoutException:
         print("Timed out waiting for page to load")
@@ -129,16 +124,25 @@ def serp_scrap_results(query):
     return url_array
     # Close the WebDriver
 
-def __refine_text(text):
+from utils.pdf_utils import process_pdf
+from utils.text_utils import get_or_create_vector_store, split_text_by_tokens
+from langchain.llms import OpenAI
+from langchain.callbacks import get_openai_callback
+from langchain.chains.question_answering import load_qa_chain
+from langchain.llms import OpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+
+def refine_text(text):
     openai.api_key = os.environ["OPENAI_API_KEY"]
     prompt_context = '''
     We have also extracted following text information from a website:\n
     '''
     prompt_context += text
 
-    prompt = '''\n
-       You are a highly experienced text analyst with a rich history of over 30 years in the field. The company you work for has acqurired textual information that needs to be cleaned and refined. The text is extracted from various websites and contains irrelevant information. Your task is to refine the text and provide a clean version of the text.
-       Specifically, if there are the following types of conent please remove them:
+    prompt = '''
+        Your task is to refine the text and provide a clean version of the text and it is within your capabilities.
+        Specifically, if there are the following types of conent please remove them:
         1. **Advertisements and Promotional Content**: Any content aimed at selling products, services, or promoting the website itself.
         2. **Navigation Links and Menus**: Links to other sections of the website that do not add to the main content.
         3. **Disclaimers and Legal Notices**: Standard disclaimers or legal information not pertinent to the main content.
@@ -149,7 +153,7 @@ def __refine_text(text):
         8. **Boilerplate Text**: Standardized text that is repeated across multiple pages without specific relevance to the current content.
         
         However, it is crucial to retain all important information related to the main topic.That includes facts, figures, statistics, analysis, and any other relevant data. If not all the types of content mentioned above are present, can be ignore the ones that are not relevant. But do not remove any relevant content in order to follow the above rules.
-        Also the most important rule is to ensure that the refined text follows the same structure and flow as the original text. There shouldnt be any change in the meaning of the text.\n
+        Also the most important rule is to ensure that the refined text follows the same structure and flow as the original text. There shouldnt be any change in the meaning of the text.
         Do not try to rewrite or rearrange or paraphrase the text. Just remove the irrelevant content. This is not a creative writing task, just a task to remove irrelevant content.
        '''
     
@@ -165,6 +169,7 @@ def __refine_text(text):
     print("vector store ready")
     docs = vector_store.similarity_search(query=prompt, k=3)
     print("docs ready")
+    print(docs)
     llm = OpenAI(temperature=0.7, model="gpt-3.5-turbo-instruct")
     print("llm ready")
     chain = load_qa_chain(llm=llm, chain_type="stuff")
@@ -174,3 +179,6 @@ def __refine_text(text):
         response = chain.run(input_documents=docs, question=prompt)
 
     return response
+
+if __name__ == '__main__':
+    print(scrape_site("https://www.tipranks.com/stocks/amrx/forecast"))

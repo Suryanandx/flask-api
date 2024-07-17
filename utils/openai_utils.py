@@ -92,6 +92,25 @@ def generate_guidance(data): #this is the function that will generate the guidan
             prompt += f"{key}: {value}\n"
     prompt += '''You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. For your information, Guidance is an informal report a public company issues to shareholders detailing the earnings it expects to achieve in the upcoming fiscal quarter or year ahead. Based only from this data, what is the guidance for the company's financial performance for the next year? 
     Here are some example guidance formats that you can use as a reference:
+
+    When calculating the yearly revenue, consider the following factors:
+    To project revenue, start by estimating the expected income from planned operations over a specific period. 
+    Next, calculate the projected expenses for the same timeframe, including the estimated costs of work based on the project schedule or scope, the costs of any planned investments, and overheads like bills, taxes, and non-billable departments such as marketing, sales, and administration. 
+    Once you have both income and expenses calculated, subtract the expenses from the income to forecast different revenue outcomes. 
+    To determine a fixed range of potential profits, deduct the maximum expenses from the minimum income and the minimum expenses from the maximum income. Take the average of these two figures to get a more accurate estimate of the expected revenue.
+
+
+    For calculating the projected yearly EBITDA, consider the following factors:
+    First subtract Net sales from the cost of raw materials. Net sales are the sum of all the products sold in the company over a specific period. The costs of raw materials are the amount the paid to acquire raw materials to produce their goods.
+    Next, subtract employee costs from the result. Employee costs include salaries, wages, and benefits paid to employees.
+    Finally, subtract other operating expenses from the result. Other operating expenses include rent, utilities, insurance, and other costs associated with running the business.
+    The final figure is the projected yearly EBITDA. EBITDA stands for Earnings Before Interest, Taxes, Depreciation, and Amortization. It is a measure of a company's operating performance.
+
+    For calculating the projected adjusted diluted EPS, consider the following factors:
+    First take a company's net income and subtract any preferred dividends, 
+    then divide the result by the sum of the weighted average number of shares outstanding and dilutive shares
+    Use the values calculted of yearly revenue, EBITDA, and adjusted diluted EPS to write the guidance for the company's financial performance for the next year.
+
     Example 1:
     "Revenues of $15.7 - $16.3 billion. Non-GAAP operating income of $4.0-$4.5 billion. Adjusted EBITDA of $4.5 - $5.0 billion. Non-GAAP diluted EPS of $2.20 - $2.50",
     Example 2:
@@ -125,6 +144,16 @@ def generate_expanalysis(data, ): #this is the function that will generate the e
     Specific Financial Metrics: Include key financial metrics such as revenues, EBITDA, net income, and EPS.
     Factors Affecting Performance: Mention any significant factors such as new product launches, regulatory changes, cost management strategies, or investment plans.
     Comparative Analysis: Compare the companys projections with industry averages or competitors if applicable.
+
+     For calculating the projected yearly EBITDA, consider the following factors:
+    First subtract Net sales from the cost of raw materials. Net sales are the sum of all the products sold in the company over a specific period. The costs of raw materials are the amount the paid to acquire raw materials to produce their goods.
+    Next, subtract employee costs from the result. Employee costs include salaries, wages, and benefits paid to employees.
+    Finally, subtract other operating expenses from the result. Other operating expenses include rent, utilities, insurance, and other costs associated with running the business.
+    The final figure is the projected yearly EBITDA. EBITDA stands for Earnings Before Interest, Taxes, Depreciation, and Amortization. It is a measure of a company's operating performance.
+
+    For calculating the projected adjusted diluted EPS, consider the following factors:
+    First take a company's net income and subtract any preferred dividends, 
+    then divide the result by the sum of the weighted average number of shares outstanding and dilutive shares
     
     Here are some example of formats  of how you can write the expert analysis that you can use as a reference and keep it under 100 words:
     Example 1: Based on analysts offering 12 month price targets for TEVA in the last 3 months. The average price target is $15.71 with a high estimate of $19 and a low estimate of $11
@@ -191,6 +220,16 @@ def analysis_10k_json(data, scrapped_data, project_id, company_name):
     Once finalized, communicate the financial guidance through appropriate channels, such as regulatory filings (e.g., SEC filings), investor presentations, press releases, or conference calls. Be prepared to address questions and provide additional context as needed.
     Continuously monitor actual performance against the guidance provided. If there are material changes or developments, consider updating the guidance to reflect new information or revised expectations.
     
+     For calculating the projected yearly EBITDA, consider the following factors:
+    First subtract Net sales from the cost of raw materials. Net sales are the sum of all the products sold in the company over a specific period. The costs of raw materials are the amount the paid to acquire raw materials to produce their goods.
+    Next, subtract employee costs from the result. Employee costs include salaries, wages, and benefits paid to employees.
+    Finally, subtract other operating expenses from the result. Other operating expenses include rent, utilities, insurance, and other costs associated with running the business.
+    The final figure is the projected yearly EBITDA. EBITDA stands for Earnings Before Interest, Taxes, Depreciation, and Amortization. It is a measure of a company's operating performance.
+
+    For calculating the projected adjusted diluted EPS, consider the following factors:
+    First take a company's net income and subtract any preferred dividends, 
+    then divide the result by the sum of the weighted average number of shares outstanding and dilutive shares
+    Use the values calculted of yearly revenue, EBITDA, and adjusted diluted EPS to write the guidance for the company's financial performance for the next year.
     Here are some example guidance formats that you can use as a reference:
     Example 1:
     "Revenues of $15.7 - $16.3 billion. Non-GAAP operating income of $4.0-$4.5 billion. Adjusted EBITDA of $4.5 - $5.0 billion. Non-GAAP diluted EPS of $2.20 - $2.50",
@@ -306,6 +345,16 @@ def append_guidance_analysis(project, company_index, existing_guidance, new_guid
     Once finalized, communicate the financial guidance through appropriate channels, such as regulatory filings (e.g., SEC filings), investor presentations, press releases, or conference calls. Be prepared to address questions and provide additional context as needed.
     Continuously monitor actual performance against the guidance provided. If there are material changes or developments, consider updating the guidance to reflect new information or revised expectations.
 
+     For calculating the projected yearly EBITDA, consider the following factors:
+    First subtract Net sales from the cost of raw materials. Net sales are the sum of all the products sold in the company over a specific period. The costs of raw materials are the amount the paid to acquire raw materials to produce their goods.
+    Next, subtract employee costs from the result. Employee costs include salaries, wages, and benefits paid to employees.
+    Finally, subtract other operating expenses from the result. Other operating expenses include rent, utilities, insurance, and other costs associated with running the business.
+    The final figure is the projected yearly EBITDA. EBITDA stands for Earnings Before Interest, Taxes, Depreciation, and Amortization. It is a measure of a company's operating performance.
+
+    For calculating the projected adjusted diluted EPS, consider the following factors:
+    First take a company's net income and subtract any preferred dividends, 
+    then divide the result by the sum of the weighted average number of shares outstanding and dilutive shares
+    Use the values calculted of yearly revenue, EBITDA, and adjusted diluted EPS to write the expert analysis for the company's financial performance for the next year.   
     Here are some example guidance formats that you can use as a reference:
     Example 1:
     "Revenues of $15.7 - $16.3 billion. Non-GAAP operating income of $4.0-$4.5 billion. Adjusted EBITDA of $4.5 - $5.0 billion. Non-GAAP diluted EPS of $2.20 - $2.50",

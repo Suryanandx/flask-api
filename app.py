@@ -468,8 +468,18 @@ def scrap_xbrl(project_id):
     except Exception as e:
         logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
-    
-    
+
+'''@app.route('/test_refine_text', methods=['GET'])
+def test_refine_text():
+    text = "https://investors.amneal.com/news/press-releases/press-release-details/2024/Amneal-Reports-First-Quarter-2024-Financial-Results/default.aspx"
+    try:
+        refined_text = scrape_site(text)
+        print(refined_text)
+        return jsonify({'refined_text': refined_text})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500'''
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
