@@ -20,6 +20,7 @@ from sec_api import XbrlApi
 from user_db.user_routes import init_routes
 from utils.web_scrapper import scrape_site
 
+
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 import datetime as date
 
@@ -481,5 +482,34 @@ def test_refine_text():
 
 
 
+@app.route('/api/test_guidance', methods=['GET'])
+def test_guidance():
+    from utils.guidance_chat import append_guidance_analysis_chat
+    try:
+        data = request.get_json()
+        new_guidance_from_user = data.get('new_guidance_from_user')
+        existing_guidance = data.get('existing_guidance')
+        project_id = data.get('project_id')
+        company_index = data.get('company_index')
+
+        
+        if not new_guidance_from_user or not project_id or not existing_guidance or not company_index:
+            return jsonify({"error": "Missing required fields"}), 400
+
+        
+        project = db.projects.find_one({"_id": ObjectId(project_id)})
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+
+        
+        if 'report' not in project or len(project['report']) <= company_index:
+            return jsonify({"error": "Company report not found"}), 404
+
+        api_output = append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance, project_id, company_index, project)
+
+        return jsonify({"message": "Guidance analysis chat appended successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
