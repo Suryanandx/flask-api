@@ -445,3 +445,4 @@ def append_note_analysis(project, company_index, existing_note, new_note_from_us
 
     print(response, 'AI response')
     return response
+
