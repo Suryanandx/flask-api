@@ -483,7 +483,7 @@ def test_refine_text():
 
 
 
-@app.route('/api/test_guidance', methods=['GET'])
+@app.route('/api/test_guidance', methods=['POST'])
 def test_guidance():
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
@@ -492,9 +492,15 @@ def test_guidance():
         existing_guidance = data.get('existing_guidance')
         project_id = data.get('project_id')
         company_index = data.get('company_index')
+        version_index = data.get('version_index')
+        print(f"new_guidance_from_user {new_guidance_from_user}")
+        print(f"existing_guidance {existing_guidance}")
+        print(f"project_id {project_id}")
+        print(f"company_index {company_index}")
+        print(f"version_index {version_index}")
 
         
-        if not new_guidance_from_user or not project_id or not existing_guidance or not company_index:
+        if not new_guidance_from_user or not project_id or not existing_guidance or not company_index >= 0 or not version_index >= 0:
             return jsonify({"error": "Missing required fields"}), 400
 
         
@@ -506,11 +512,12 @@ def test_guidance():
         if 'report' not in project or len(project['report']) <= company_index:
             return jsonify({"error": "Company report not found"}), 404
 
-        api_output = append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance, project_id, company_index, project)
+        api_output = append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance, project_id, company_index, version_index, project)
 
-        return jsonify({"message": "Guidance analysis chat appended successfully"}), 200
+        return jsonify({"message": "Guidance analysis chat appended successfully", "guidance": api_output}), 200
 
     except Exception as e:
+        logging.error(f"Error extracting guidance: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
