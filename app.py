@@ -483,15 +483,15 @@ def test_refine_text():
 
 
 
-@app.route('/api/test_guidance', methods=['GET'])
-def test_guidance():
+@app.route('/api/guidance_chat/<project_id>', methods=['POST'])
+def test_guidance(project_id):
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
         data = request.get_json()
-        new_guidance_from_user = data.get('new_guidance_from_user')
-        existing_guidance = data.get('existing_guidance')
-        project_id = data.get('project_id')
+        new_guidance_from_user = data.get('query')
+        existing_guidance = data.get('previousGuidance')
         company_index = data.get('company_index')
+        version_index = data.get('version_index')
 
         
         if not new_guidance_from_user or not project_id or not existing_guidance or not company_index:
@@ -506,7 +506,7 @@ def test_guidance():
         if 'report' not in project or len(project['report']) <= company_index:
             return jsonify({"error": "Company report not found"}), 404
 
-        api_output = append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance, project_id, company_index, project)
+        api_output = append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance, project_id, company_index, version_index, project)
 
         return jsonify({"message": "Guidance analysis chat appended successfully"}), 200
 
