@@ -511,24 +511,18 @@ def test_refine_text():
 
 
 
-@app.route('/api/test_guidance', methods=['POST'])
-def test_guidance():
+@app.route('/api/guidance_chat/<project_id>', methods=['POST'])
+def test_guidance(project_id):
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
         data = request.get_json()
-        new_guidance_from_user = data.get('new_guidance_from_user')
-        existing_guidance = data.get('existing_guidance')
-        project_id = data.get('project_id')
+        new_guidance_from_user = data.get('query')
+        existing_guidance = data.get('previousGuidance')
         company_index = data.get('company_index')
         version_index = data.get('version_index')
-        print(f"new_guidance_from_user {new_guidance_from_user}")
-        print(f"existing_guidance {existing_guidance}")
-        print(f"project_id {project_id}")
-        print(f"company_index {company_index}")
-        print(f"version_index {version_index}")
 
         
-        if not new_guidance_from_user or not project_id or not existing_guidance or not company_index >= 0 or not version_index >= 0:
+        if not new_guidance_from_user or not project_id or not existing_guidance or not company_index:
             return jsonify({"error": "Missing required fields"}), 400
 
         
@@ -545,7 +539,6 @@ def test_guidance():
         return jsonify({"message": "Guidance analysis chat appended successfully", "chat_history": api_output}), 200
 
     except Exception as e:
-        logging.error(f"Error extracting guidance: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)

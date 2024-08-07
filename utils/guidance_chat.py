@@ -18,7 +18,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 def count_tokens(messages):
     return sum(len(message['content'].split()) for message in messages)
 
-def truncate_chat_history(chat_history, max_tokens=30000):
+def truncate_chat_history(chat_history, max_tokens=3000):
     while count_tokens(chat_history) > max_tokens:
         chat_history.pop(4)
     return chat_history
@@ -88,7 +88,7 @@ def append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance,
         chat_history.append({"role": "user", "content": prompt_context})
         user_message = {
             "role": "user",
-            "content": f"In a previous analysis from OpenAI, we have received the following guidance {existing_guidance}, but we have found some errors in the response and we would like to rectify the error in guidance with the following feedback {new_guidance_from_user}"
+            "content": f"In a previous analysis from OpenAI, we have received the following guidance {existing_guidance}, but we have found some errors in the response and we would like to rectify the error in guidance with the following feedback and also maybe ask few questions {new_guidance_from_user}"
         }
         chat_history.append(user_message)
 
