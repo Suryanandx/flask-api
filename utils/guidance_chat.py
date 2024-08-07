@@ -104,7 +104,7 @@ def append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance,
         chat_history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
         db.projects.update_one({"_id": ObjectId(project_id)}, {"$set": {"report": project['report']}})
 
-        return response['choices'][0]['message']['content']
+        return chat_history
     except Exception as e:
         logging.error(f"Error extracting guidance: {str(e)}", exc_info=True)
         return e

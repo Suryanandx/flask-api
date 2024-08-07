@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify, send_from_directory
 import logging
 import os
 import time
-
+import json
+import subprocess
 import openai
 import requests
 from bs4 import BeautifulSoup
@@ -16,6 +17,10 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sec_api import XbrlApi
+import re
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
 
 from user_db.user_routes import init_routes
 from utils.web_scrapper import scrape_site
@@ -453,6 +458,31 @@ def chat(project_id):
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
 
+# Function to extract net revenue from XBRL file
+def extract_net_revenue_from_xbrl(xbrl_file_path):
+    output_json_path = 'sec_api_response.json'
+    # Define the command to run Arelle in command line mode
+    command = [
+        'python', '-m', 'arelle.CntlrCmdLine',
+        '--file', xbrl_file_path,
+        '--facts', output_json_path
+    ]
+
+    # Execute the command
+    result = subprocess.run(command, capture_output=True, text=True)
+
+    # Check for errors
+    if result.returncode != 0:
+        print(f"Error: {result.stderr}")
+    else:
+        print(f"Conversion successful, JSON saved to {output_json_path}")
+    # Fetch the XBRL file content
+    response = requests.get(output_json_path)
+    response.raise_for_status()
+
+    return response.content
+
+
 
 
 # Chat API route
@@ -461,13 +491,11 @@ def scrap_xbrl(project_id):
     try:
         data = request.get_json()
         url_10k = data['xbrl']
-        company_name = data['name']
-        datapoint = data['datapoint']
-        xbrl_json = xbrlApi.xbrl_to_json(htm_url=url_10k)
-        return jsonify({"response": xbrl_json})
+        net_revenue_df = extract_net_revenue_from_xbrl(url_10k)
+        return net_revenue_df
 
     except Exception as e:
-        logging.error(f"Error processing chat request for project '{project_id}': {str(e)}")
+        logging.error(f"Error processing chat request for project '{project_id}': {str(e)}", exc_info=True)
         return jsonify({"error": f"Error processing chat request: {str(e)}"}), 500
 
 
@@ -514,7 +542,7 @@ def test_guidance():
 
         api_output = append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance, project_id, company_index, version_index, project)
 
-        return jsonify({"message": "Guidance analysis chat appended successfully", "guidance": api_output}), 200
+        return jsonify({"message": "Guidance analysis chat appended successfully", "chat_history": api_output}), 200
 
     except Exception as e:
         logging.error(f"Error extracting guidance: {str(e)}", exc_info=True)
