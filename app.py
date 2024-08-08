@@ -511,15 +511,16 @@ def test_refine_text():
 
 
 
-@app.route('/api/guidance_chat/<project_id>', methods=['POST'])
+@app.route('/api/test_guidance', methods=['POST'])
 def test_guidance(project_id):
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
         data = request.get_json()
-        new_guidance_from_user = data.get('query')
-        existing_guidance = data.get('previousGuidance')
+        new_guidance_from_user = data.get('new_guidance_from_user')
+        existing_guidance = data.get('existing_guidance')
         company_index = data.get('company_index')
         version_index = data.get('version_index')
+        project_id = data.get('project_id')
 
         
         if not new_guidance_from_user or not project_id or not existing_guidance or not company_index:
