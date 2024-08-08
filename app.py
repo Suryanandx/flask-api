@@ -512,7 +512,7 @@ def test_refine_text():
 
 
 @app.route('/api/test_guidance', methods=['POST'])
-def test_guidance(project_id):
+def test_guidance():
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
         data = request.get_json()
