@@ -511,7 +511,7 @@ def test_refine_text():
 
 
 
-@app.route('/api/guidance_chat', methods=['POST'])
+@app.route('/api/test_guidance', methods=['POST'])
 def test_guidance():
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
@@ -523,7 +523,7 @@ def test_guidance():
         project_id = data.get('project_id')
 
         
-        if not new_guidance_from_user or not project_id or not existing_guidance or not company_index:
+        if not new_guidance_from_user or not project_id or not existing_guidance or not company_index >= 0:
             return jsonify({"error": "Missing required fields"}), 400
 
         
@@ -541,11 +541,10 @@ def test_guidance():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=PORT, debug=True)
+
 
 @app.route('/api/note_chat', methods=['POST'])
-def test_guidance():
+def test_note():
     from utils.note_chat import append_note_chat
     try:
         data = request.get_json()
@@ -556,7 +555,7 @@ def test_guidance():
         project_id = data.get('project_id')
 
         
-        if not new_note_from_user or not project_id or not existing_note or not company_index:
+        if not new_note_from_user or not project_id or not existing_note or not company_index >= 0:
             return jsonify({"error": "Missing required fields"}), 400
 
         

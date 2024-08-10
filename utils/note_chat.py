@@ -104,9 +104,8 @@ def append_note_chat(db, new_note_from_user, existing_note, project_id, company_
 
         chat_history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
         db.projects.update_one({"_id": ObjectId(project_id)}, {"$set": {"report": project["report"]}})
-        output = response['choices'][0]['message']['content']
 
-        return output
+        return chat_history
     except Exception as e:
         logging.error(f"Error extracting expert analysis: {str(e)}", exc_info=True)
         return e
