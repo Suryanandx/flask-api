@@ -511,8 +511,8 @@ def test_refine_text():
 
 
 
-@app.route('/api/test_guidance', methods=['POST'])
-def test_guidance():
+@app.route('/api/guidance_chat/<project_id>', methods=['POST'])
+def test_guidance(project_id):
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
         data = request.get_json()
@@ -538,6 +538,39 @@ def test_guidance():
         api_output = append_guidance_analysis_chat(db, new_guidance_from_user, existing_guidance, project_id, company_index, version_index, project)
 
         return jsonify({"message": "Guidance analysis chat appended successfully", "chat_history": api_output}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=PORT, debug=True)
+
+@app.route('/api/note_chat/<project_id>', methods=['POST'])
+def test_guidance(project_id):
+    from utils.note_chat import append_note_chat
+    try:
+        data = request.get_json()
+        new_note_from_user = data.get('new_note_from_user')
+        existing_note = data.get('existing_note')
+        company_index = data.get('company_index')
+        version_index = data.get('version_index')
+        project_id = data.get('project_id')
+
+        
+        if not new_note_from_user or not project_id or not existing_note or not company_index:
+            return jsonify({"error": "Missing required fields"}), 400
+
+        
+        project = db.projects.find_one({"_id": ObjectId(project_id)})
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+
+        
+        if 'report' not in project or len(project['report']) <= company_index:
+            return jsonify({"error": "Company report not found"}), 404
+
+        api_output = append_note_chat(db, new_note_from_user, existing_note, project_id, company_index, version_index, project)
+
+        return jsonify({"message": "expert analysis chat appended successfully", "chat_history": api_output}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
