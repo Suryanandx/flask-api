@@ -511,8 +511,8 @@ def test_refine_text():
 
 
 
-@app.route('/api/guidance_chat/<project_id>', methods=['POST'])
-def test_guidance(project_id):
+@app.route('/api/guidance_chat', methods=['POST'])
+def test_guidance():
     from utils.guidance_chat import append_guidance_analysis_chat
     try:
         data = request.get_json()
@@ -544,8 +544,8 @@ def test_guidance(project_id):
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
 
-@app.route('/api/note_chat/<project_id>', methods=['POST'])
-def test_guidance(project_id):
+@app.route('/api/note_chat', methods=['POST'])
+def test_guidance():
     from utils.note_chat import append_note_chat
     try:
         data = request.get_json()
