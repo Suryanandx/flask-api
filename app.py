@@ -28,8 +28,6 @@ from utils.web_scrapper import scrape_site
 
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 import datetime as date
-
-
 import tiktoken
 model = "gpt-4-turbo"
 enc = tiktoken.encoding_for_model(model)
@@ -235,7 +233,6 @@ def get_project_by_id(project_id):
             return jsonify({"error": "Invalid project ID"}), 400
 
         project = db.projects.find_one({"_id": ObjectId(project_id)})
-
 
         if not project:
             return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
@@ -459,30 +456,83 @@ def chat(project_id):
 
 
 # Function to extract net revenue from XBRL file
+# def extract_net_revenue_from_xbrl(xbrl_file_path):
+#     output_json_path = 'sec_api_response.json'
+#     # Define the command to run Arelle in command line mode
+#     command = [
+#         'python', '-m', 'arelle.CntlrCmdLine',
+#         '--file', xbrl_file_path,
+#         '--facts', output_json_path
+#     ]
+#     # Execute the command
+#     result = subprocess.run(command, capture_output=True, text=True)
+#
+#     # Check for errors
+#     if result.returncode != 0:
+#         print(f"Error: {result.stderr}")
+#     else:
+#         print(f"Conversion successful, JSON saved to {output_json_path}")
+#     # Fetch the XBRL file content
+#     response = requests.get(output_json_path)
+#     response.raise_for_status()
+#
+#     return response.content
+
+
 def extract_net_revenue_from_xbrl(xbrl_file_path):
-    output_json_path = 'sec_api_response.json'
-    # Define the command to run Arelle in command line mode
-    command = [
-        'python', '-m', 'arelle.CntlrCmdLine',
-        '--file', xbrl_file_path,
-        '--facts', output_json_path
-    ]
+    json_file_path = 'sec_api_response.json'
 
-    # Execute the command
-    result = subprocess.run(command, capture_output=True, text=True)
+    # Open and read the XBRL file
+    with open(xbrl_file_path, 'r') as file:
+        content = file.read()
 
-    # Check for errors
-    if result.returncode != 0:
-        print(f"Error: {result.stderr}")
-    else:
-        print(f"Conversion successful, JSON saved to {output_json_path}")
-    # Fetch the XBRL file content
-    response = requests.get(output_json_path)
-    response.raise_for_status()
+    # Parse the XBRL using BeautifulSoup with the lxml XML parser
+    soup = BeautifulSoup(content, features="xml")
 
-    return response.content
+    # Define the tags and their output names
+    tag_mapping = {
+        'DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts': 'Depreciation & Amortization',
+        'IncomeTaxesPaidNet': 'Income Tax',
+        'RevenueFromContractWithCustomerExcludingAssessedTax': 'Net Revenue',
+        'NetIncomeLossAttributableToParentBeforeAccretionOfRedeemableNoncontrollingInterest': 'Net Income',
+        'OperatingIncomeLoss': 'Operating Income',
+        'ProfitLoss': 'Profit Loss',
+        'InterestIncomeExpenseNonoperatingNet': 'Interest Expense'
+    }
 
+    def extract_data(tag_name):
+        elements = soup.find_all(tag_name)
+        data = []
+        for element in elements:
+            context_ref = element.get('contextRef')
+            if context_ref:
+                context = soup.find('context', {'id': context_ref})
+                period = context.find('period') if context else None
+                year = period.find('endDate').text[:4] if period else None
+            else:
+                year = None
 
+            data.append({
+                'value': element.text.strip(),
+                'year': year
+            })
+
+        return data
+
+    # Collect data for all tags
+    financial_data = {}
+    for tag, output_name in tag_mapping.items():
+        financial_data[output_name] = extract_data(tag)
+
+    # Convert the parsed financial data to JSON and save it to a file
+    with open(json_file_path, 'w') as json_file:
+        json.dump(financial_data, json_file, indent=4)
+
+    # Read the JSON file and return its content as raw bytes
+    with open(json_file_path, 'rb') as json_file:
+        json_content = json_file.read()
+
+    return json_content
 
 
 # Chat API route
@@ -508,6 +558,9 @@ def test_refine_text():
         return jsonify({'refined_text': refined_text})
     except Exception as e:
         return jsonify({'error': str(e)}), 500'''
+
+
+
 
 
 
@@ -543,6 +596,8 @@ def test_guidance():
         return jsonify({"error": str(e)}), 500
 
 
+
+
 @app.route('/api/note_chat', methods=['POST'])
 def test_note():
     from utils.note_chat import append_note_chat
@@ -554,16 +609,13 @@ def test_note():
         version_index = data.get('version_index')
         project_id = data.get('project_id')
 
-        
         if not new_note_from_user or not project_id or not existing_note or not company_index >= 0:
             return jsonify({"error": "Missing required fields"}), 400
 
-        
         project = db.projects.find_one({"_id": ObjectId(project_id)})
         if not project:
             return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
 
-        
         if 'report' not in project or len(project['report']) <= company_index:
             return jsonify({"error": "Company report not found"}), 404
 
@@ -573,5 +625,7 @@ def test_note():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
