@@ -13,27 +13,73 @@ os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 product_and_countries_query = "What are the top countries the company has performed well?  what are the top performing products of the company? the response should be two arrays, one for list of countries and another one for list of products"
 
+from collections import defaultdict
+
+
+def get_latest_year(year_wise_data):
+	# Convert the year keys to integers and find the maximum year
+	years = [int(year) for year in year_wise_data.keys()]
+	latest_year = max(years)
+
+	return str(latest_year)
+def get_company_name(year_wise_data):
+	# Iterate through the year-wise data
+	for year, data in year_wise_data.items():
+		# Check if the 'name' key exists in the current year's data
+		if 'name' in data:
+			return data['name']
+
+	# If the 'name' key is not found in any year, return a default value
+	return "Company name not found"
+def extract_year_wise_data(xbrl_json):
+	year_wise_data = defaultdict(lambda: defaultdict(lambda: "Value not available"))
+
+	# Extract the company name if available
+	company_name = xbrl_json.get("name", [{"value": "Unknown Company"}])[0].get("value", "Unknown Company")
+
+	# Iterate through each key in the xbrl_json
+	for key, values in xbrl_json.items():
+		for entry in values:
+			year = entry.get('year')
+			value = entry.get('value', "Value not available")
+			year_wise_data[year][key] = value
+			# Add company name and year to each year's data
+			year_wise_data[year]["name"] = company_name
+			year_wise_data[year]["year"] = year
+
+	# Convert defaultdict to a regular dict for the final output
+	year_wise_data = {year: dict(data) for year, data in year_wise_data.items()}
+
+	return year_wise_data
+
+
+def summarize_data(year_wise_data):
+	summary = []
+
+	for year, data in year_wise_data.items():
+		summary.append(f"Summary for {data['name']} in {year}:")
+		summary.append(f"- Net Revenue: {data.get('Net Revenue', 'Value not available')}")
+		summary.append(f"- Operating Income: {data.get('Operating Income', 'Value not available')}")
+		summary.append(f"- Net Income: {data.get('Net Income', 'Value not available')}")
+		summary.append(f"- Profit Loss: {data.get('Profit Loss', 'Value not available')}")
+		summary.append(f"- Income Tax: {data.get('Income Tax', 'Value not available')}")
+		summary.append(
+			f"- Depreciation & Amortization: {data.get('Depreciation & Amortization', 'Value not available')}")
+		summary.append(f"- Interest Expense: {data.get('Interest Expense', 'Value not available')}")
+		summary.append("")  # Add a blank line between year summaries
+
+	return "\n".join(summary)
+
+
 def extract_from_xbrl_json(xbrl_json, project_id):
-
-	response = {
-		"Operating Income": xbrl_json["Operating Income"],
-		"Profit Loss":  xbrl_json["Profit Loss"],
-		"Net income": xbrl_json["Net income"],
-		"interest expense": xbrl_json["interest expense"],
-		"Income Tax": xbrl_json["Income Tax"],
-		"Depreciation & Amortization": xbrl_json["Depreciation & Amortization"],
-		"Net Revenue": xbrl_json["Net Revenue"],
-		"name": xbrl_json["name"],
-		"ebitda": xbrl_json["ebitda"],
-		"annual revenue growth": xbrl_json["annual revenue growth"],
-		"ebitda growth": xbrl_json["ebitda growth"],
-		"year": xbrl_json["year"],
-	}
-
+	json_from_xbrl = extract_year_wise_data(xbrl_json)
+	response = summarize_data(json_from_xbrl)
+	company_name = get_company_name(json_from_xbrl)
+	latest_year = get_latest_year(json_from_xbrl)
 	# this is used to generate guidance from the extracted data. is in the openai_utils.py file
-	serp_scrapped_urls_method_a = serp_scrap_results(name + " Analysis " + year);
-	serp_scrapped_urls_method_b = serp_scrap_results(name + " most profitable products and countries ");
-	serp_scrapped_urls_method_c = serp_scrap_results(name + " Earnings call " + year);
+	serp_scrapped_urls_method_a = serp_scrap_results(company_name + " Analysis for the year " + latest_year);
+	serp_scrapped_urls_method_b = serp_scrap_results(company_name + " most profitable products and countries for the year " +latest_year );
+	serp_scrapped_urls_method_c = serp_scrap_results(company_name + " Earnings call for the year " + latest_year);
 	serp_scrapped_urls = serp_scrapped_urls_method_a + list(set(serp_scrapped_urls_method_b) - set(serp_scrapped_urls_method_a))
 	serp_scrapped_urls = serp_scrapped_urls + list(set(serp_scrapped_urls_method_c) - set(serp_scrapped_urls))
 
@@ -52,8 +98,8 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 	all_scraped_data = ' '.join(scraped_data)
 
 	# with AI
-	result_from_analysis = analysis_10k_json(response, all_scraped_data, project_id, name)
-	response['scrapped_data'] = all_scraped_data
+	result_from_analysis = analysis_10k_json(response, all_scraped_data, project_id, company_name)
+	json_from_xbrl['scrapped_data'] = all_scraped_data
 
 	print("result_from_analysis", result_from_analysis)
 	products_array = []
@@ -70,25 +116,20 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 		countries_object[country] = idx
 	print("countries built", countries_object)
 
-	response['products'] = products_array
-	response['countries'] = countries_object
-	response["guidance"] = result_from_analysis['guidance']
-	response["note"] = result_from_analysis['expert_analysis']
-	print("response is ready", response)
+	json_from_xbrl['products'] = products_array
+	json_from_xbrl['countries'] = countries_object
+	json_from_xbrl["guidance"] = result_from_analysis['guidance']
+	json_from_xbrl["note"] = result_from_analysis['expert_analysis']
+	print("response is ready", json_from_xbrl)
 
-    # without ai
-	# response['products_and_countries'] = all_scraped_data
-	# response["guidance"] = "guidance"
-	# response["note"] = "note"
-
-	return response
+	return json_from_xbrl
 
 
 def xbrl_to_json(urls_array):
 	json_array = []
 	for url in urls_array:
 		try:
-			xbrl_json_item = extract_net_revenue_from_xbrl(htm_url=url)
+			xbrl_json_item = extract_net_revenue_from_xbrl(url)
 			json_array.append(xbrl_json_item)
 		except Exception as e:
 			print(f"Error extracting JSON from XBRL for URL {url}: {e}")
@@ -115,7 +156,9 @@ def extract_net_revenue_from_xbrl(xbrl_file_path):
         'NetIncomeLossAttributableToParentBeforeAccretionOfRedeemableNoncontrollingInterest': 'Net Income',
         'OperatingIncomeLoss': 'Operating Income',
         'ProfitLoss': 'Profit Loss',
-        'InterestIncomeExpenseNonoperatingNet': 'Interest Expense'
+        'InterestIncomeExpenseNonoperatingNet': 'Interest Expense',
+		"EntityRegistrantName": "name",
+		"DocumentFiscalYearFocus": "year"
     }
 
     def extract_data(tag_name):
@@ -148,7 +191,7 @@ def scrape_and_get_reports(json_array, project_id):
 	print("Scraping and getting reports...")
 	report_array = []
 	for json_item in json_array:
-		response = extract_from_xbrl_json(json_item['response'], project_id)
+		response = extract_from_xbrl_json(json_item, project_id)
 		report_array.append(response)
 	
 	return report_array

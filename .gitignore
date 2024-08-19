@@ -2,6 +2,7 @@ venv
 .env
 uploads
 *.pkl
+*.crdownload
 content.txt
 *.jpg
 log.txt

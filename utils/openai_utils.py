@@ -24,11 +24,11 @@ def parse_json_garbage(response):
 
 def generate_guidance(data): #this is the function that will generate the guidance for the company
     openai.api_key = os.environ["OPENAI_API_KEY"]
-    prompt = f"The company {data['name']} has the following financial data:\n"
-    for key, value in data.items():
-        if key != 'name':
-            prompt += f"{key}: {value}\n"
-    prompt += '''You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. For your information, Guidance is an informal report a public company issues to shareholders detailing the earnings it expects to achieve in the upcoming fiscal quarter or year ahead. Based only from this data, what is the guidance for the company's financial performance for the next year? 
+    prompt_context = f"The company has the following financial data:\n"
+
+    prompt_context += f"{data}\n"
+
+    prompt = '''You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. For your information, Guidance is an informal report a public company issues to shareholders detailing the earnings it expects to achieve in the upcoming fiscal quarter or year ahead. Based only from this data, what is the guidance for the company's financial performance for the next year? 
     Here are some example guidance formats that you can use as a reference:
 
     When calculating the yearly revenue, consider the following factors:
@@ -70,11 +70,11 @@ def generate_guidance(data): #this is the function that will generate the guidan
 
 def generate_expanalysis(data, ): #this is the function that will generate the expert analysis for the company
     openai.api_key = os.environ["OPENAI_API_KEY"]
-    prompt = f"The company {data['name']} has the following financial data:\n"
-    for key, value in data.items():
-        if key != 'name':
-            prompt += f"{key}: {value}\n"
-    prompt += '''You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. It should also include steps for the upcoming future that can benefit the company realistically. Based only from this data, Can you write an expert analysis paragraph. 
+    prompt_context = f"The company has the following financial data:\n"
+
+    prompt_context += f"{data}\n"
+
+    prompt = '''You are a highly experienced Business Analyst and Financial Expert with a rich history of over 30 years in the field. It should also include steps for the upcoming future that can benefit the company realistically. Based only from this data, Can you write an expert analysis paragraph. 
 
     When writing the analysis, consider the following details:
     Keep the information concise and to the point. The response should be based on the data provided. The response must also have quantitative values to support the response. Ensure the quantitative values are realistic and accurately calculated based on typical industry standards and historical performance.
@@ -112,10 +112,9 @@ def generate_expanalysis(data, ): #this is the function that will generate the e
 
 def analysis_10k_json(data, scrapped_data, project_id, company_name):
     openai.api_key = os.environ["OPENAI_API_KEY"]
-    prompt_context = f"The company {data['name']} has the following financial data:\n"
-    for key, value in data.items():
-        if key != 'name':
-            prompt_context += f"{key}: {value}\n"
+    prompt_context = f"The company has the following financial data:\n"
+
+    prompt_context += f"{data}\n"
 
     prompt_context += '''
     We have also extracted following text information from few websites:\n

@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+import logging
 
 no_of_pages_serp = 2
 no_of_results_serp = 10
@@ -76,6 +77,7 @@ def build_web_driver():
         return None
 
 def serp_scrap_results(query):
+    logging.error(f"\ scrapping for : {query}")
 
     driver = build_web_driver()
 

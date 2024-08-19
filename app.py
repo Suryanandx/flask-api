@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_pymongo import PyMongo
 from sec_api import XbrlApi
+from werkzeug.utils import secure_filename
 
 from user_db.user_routes import init_routes
 
@@ -58,6 +59,14 @@ def upload_file():
 
         file = request.files['file']
 
+        uploads_folder = os.path.join(os.getcwd(), "uploads")
+        if not os.path.exists(uploads_folder):
+            os.makedirs(uploads_folder)
+
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(uploads_folder, filename)
+        file.save(file_path)
+
         if file.filename == '':
             return jsonify({"error": "No file selected"}), 400
 
@@ -102,11 +111,12 @@ def projects():
             project_name = data['name']
             project_description = data['description']
             comps = data['comps']
-
+            uploads_folder = os.path.join(os.getcwd(), "uploads")
             # Comps will contain url field too
             url_array = []
             for comp in comps:
-                url_array.append(comp['url'])
+                file_path = os.path.join(uploads_folder, comp['files'][0]["filename"])
+                url_array.append(file_path)
 
             # scrapped_data = scrape_and_get_reports(url_array);
             print("url array", url_array)
@@ -203,7 +213,11 @@ def get_project_by_id_and_extract(project_id):
             "timestamp": time.time(),
             "report": scrapped_data
         }
-        project['report'].append(new_report);
+        if 'report' not in project:
+            project['report'] = []
+
+        # Append the new report to the list
+        project['report'].append(new_report)
         db.projects.update_one(
             {"_id": ObjectId(project_id)},
             {"$set": {"report": project['report']}}
@@ -217,7 +231,7 @@ def get_project_by_id_and_extract(project_id):
 
     except Exception as e:
         print(e)
-        logging.error(f"Error retrieving project by ID: {str(e)}")
+        logging.error(f"Error retrieving project by ID: {str(e)}", exc_info=True)
         return jsonify({"error": f"Error retrieving project by ID: {str(e)}"}), 500
 
 
