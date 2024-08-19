@@ -16,6 +16,75 @@ product_and_countries_query = "What are the top countries the company has perfor
 from collections import defaultdict
 
 
+def extract_latest_year_data(xbrl_json):
+	# Extract the financial data and find the latest year
+	year_wise_data = defaultdict(lambda: defaultdict(lambda: 0))
+
+	# Iterate through each key in the xbrl_json
+	for key, values in xbrl_json.items():
+		for entry in values:
+			year = entry.get('year')
+			value_str = entry.get('value', "0")  # Get value as string
+			try:
+				value = int(value_str)  # Attempt to convert to integer
+			except ValueError:
+				value = 0  # If conversion fails, default to 0
+			year_wise_data[year][key] += value  # Sum up values per year
+
+	# Convert to regular dict and find the latest year
+	year_wise_data = {year: dict(data) for year, data in year_wise_data.items()}
+	latest_year = max(year_wise_data.keys())
+
+	return year_wise_data, latest_year
+
+
+def calculate_financials(xbrl_json):
+	year_wise_data, latest_year = extract_latest_year_data(xbrl_json)
+
+	# Get the latest year and previous year
+	latest_year_data = year_wise_data[latest_year]
+	previous_year = str(int(latest_year) - 1)
+	previous_year_data = year_wise_data.get(previous_year, {})
+
+	# Calculate Revenue Growth
+	latest_revenue = latest_year_data.get("Net Revenue", 0)
+	previous_revenue = previous_year_data.get("Net Revenue", 0)
+	if previous_revenue:
+		revenue_growth = ((latest_revenue - previous_revenue) / previous_revenue) * 100
+	else:
+		revenue_growth = None  # Unable to calculate growth without previous data
+
+	# Calculate EBITDA (Operating Income + Depreciation & Amortization)
+	latest_operating_income = latest_year_data.get("Operating Income", 0)
+	latest_depreciation_amortization = latest_year_data.get("Depreciation & Amortization", 0)
+	latest_ebitda = latest_operating_income + latest_depreciation_amortization
+
+	# Calculate EBITDA Growth
+	previous_operating_income = previous_year_data.get("Operating Income", 0)
+	previous_depreciation_amortization = previous_year_data.get("Depreciation & Amortization", 0)
+	previous_ebitda = previous_operating_income + previous_depreciation_amortization
+
+	if previous_ebitda:
+		ebitda_growth = ((latest_ebitda - previous_ebitda) / previous_ebitda) * 100
+	else:
+		ebitda_growth = None  # Unable to calculate growth without previous data
+
+	return {
+		"annual revenue growth": [{
+			"year": latest_year,
+			"value": revenue_growth
+		}] if revenue_growth is not None else [],
+		"ebitda": [{
+			"year": latest_year,
+			"value": latest_ebitda
+		}],
+		"ebitda growth": [{
+			"year": latest_year,
+			"value": ebitda_growth
+		}] if ebitda_growth is not None else []
+	}
+
+
 def get_latest_year(year_wise_data):
 	# Convert the year keys to integers and find the maximum year
 	years = [int(year) for year in year_wise_data.keys()]
@@ -76,6 +145,12 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 	response = summarize_data(json_from_xbrl)
 	company_name = get_company_name(json_from_xbrl)
 	latest_year = get_latest_year(json_from_xbrl)
+	financials = calculate_financials(xbrl_json)
+	xbrl_json["ebitda"] = financials["ebitda"]
+	xbrl_json["annual revenue growth"] = financials["annual revenue growth"]
+	xbrl_json["ebitda growth"] = financials["ebitda growth"]
+
+
 	# this is used to generate guidance from the extracted data. is in the openai_utils.py file
 	serp_scrapped_urls_method_a = serp_scrap_results(company_name + " Analysis for the year " + latest_year);
 	serp_scrapped_urls_method_b = serp_scrap_results(company_name + " most profitable products and countries for the year " +latest_year );
@@ -99,7 +174,7 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 
 	# with AI
 	result_from_analysis = analysis_10k_json(response, all_scraped_data, project_id, company_name)
-	json_from_xbrl['scrapped_data'] = all_scraped_data
+	xbrl_json['scrapped_data'] = all_scraped_data
 
 	print("result_from_analysis", result_from_analysis)
 	products_array = []
@@ -116,13 +191,15 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 		countries_object[country] = idx
 	print("countries built", countries_object)
 
-	json_from_xbrl['products'] = products_array
-	json_from_xbrl['countries'] = countries_object
-	json_from_xbrl["guidance"] = result_from_analysis['guidance']
-	json_from_xbrl["note"] = result_from_analysis['expert_analysis']
-	print("response is ready", json_from_xbrl)
+	xbrl_json['products'] = products_array
+	xbrl_json['countries'] = countries_object
+	xbrl_json["guidance"] = result_from_analysis['guidance']
+	xbrl_json["note"] = result_from_analysis['expert_analysis']
+	xbrl_json["name"] = company_name
+	xbrl_json["year"] = latest_year
+	print("response is ready", xbrl_json)
 
-	return json_from_xbrl
+	return xbrl_json
 
 
 def xbrl_to_json(urls_array):

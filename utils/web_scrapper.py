@@ -77,8 +77,8 @@ def build_web_driver():
         return None
 
 def serp_scrap_results(query):
-    logging.error(f"\ scrapping for : {query}")
-
+    logging.info(f"\ scrapping for : {query}")
+    print(query)
     driver = build_web_driver()
 
     # Set up WebDriver
