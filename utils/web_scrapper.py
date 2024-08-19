@@ -14,7 +14,7 @@ from langchain.callbacks import get_openai_callback
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-no_of_pages_serp = 2
+no_of_pages_serp = 1
 no_of_results_serp = 10
 
 

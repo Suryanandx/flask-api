@@ -157,10 +157,11 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 	serp_scrapped_urls_method_c = serp_scrap_results(company_name + " Earnings call for the year " + latest_year);
 	serp_scrapped_urls = serp_scrapped_urls_method_a + list(set(serp_scrapped_urls_method_b) - set(serp_scrapped_urls_method_a))
 	serp_scrapped_urls = serp_scrapped_urls + list(set(serp_scrapped_urls_method_c) - set(serp_scrapped_urls))
+	filtered_urls = [url for url in serp_scrapped_urls if not url.endswith(".pdf")]
 
-	print(serp_scrapped_urls, 'serp_scrapped_urls')
+	print(filtered_urls, 'serp_scrapped_urls')
 	scraped_data = []
-	for url in serp_scrapped_urls:
+	for url in filtered_urls:
 		# Scrape each website with a timeout of 60 seconds
 		try:
 			current_scrapped_text = scrape_site(url)
