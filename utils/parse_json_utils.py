@@ -3,7 +3,7 @@ import os
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from sec_api import XbrlApi
-
+import logging
 from utils.openai_utils import analysis_10k_json
 from utils.web_scrapper import serp_scrap_results, scrape_site
 
@@ -166,6 +166,7 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 			current_scrapped_text = scrape_site(url)
 			scraped_data.append(current_scrapped_text)
 		except Exception as e:
+			logging.error(f"Couldn't scrap the site: {str(e)}", exc_info=True)
 			print("Couldn't scrap the site")
 			scraped_data.append("NA")
 
