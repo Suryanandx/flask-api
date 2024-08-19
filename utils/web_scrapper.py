@@ -1,19 +1,14 @@
 import os
+
 import openai
-import requests
-from bs4 import BeautifulSoup
-import time
+from fake_useragent import UserAgent
+from pyvirtualdisplay import Display
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from pyvirtualdisplay import Display
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-from fake_useragent import UserAgent
-
+from selenium.webdriver.support.ui import WebDriverWait
 
 no_of_pages_serp = 2
 no_of_results_serp = 10
@@ -124,9 +119,8 @@ def serp_scrap_results(query):
     return url_array
     # Close the WebDriver
 
-from utils.pdf_utils import process_pdf
-from utils.text_utils import get_or_create_vector_store, split_text_by_tokens
-from langchain.llms import OpenAI
+
+from utils.text_utils import get_or_create_vector_store
 from langchain.callbacks import get_openai_callback
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI

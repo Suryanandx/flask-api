@@ -39,7 +39,6 @@ db = mongo.db
 init_routes(app, db)
 # Helper functions
 from utils.parse_json_utils import scrape_and_get_reports, xbrl_to_json
-from utils.pdf_utils import process_pdf_and_store
 
 
 # Route for the root endpoint
@@ -62,7 +61,6 @@ def upload_file():
         if file.filename == '':
             return jsonify({"error": "No file selected"}), 400
 
-        filename = process_pdf_and_store(file)
 
         if filename:
             file_url = f"{request.url_root}uploads/{filename}"
