@@ -1,107 +1,17 @@
 import os
-from dotenv import load_dotenv
-import openai
-from sec_api import XbrlApi
-from utils.openai_utils import generate_guidance, generate_expanalysis, analysis_from_html, analysis_10k_json
-from utils.web_scrapper import serp_scrap_results, scrape_site
-import json
-import subprocess
-import openai
-import requests
-from bs4 import BeautifulSoup
 
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from sec_api import XbrlApi
+
+from utils.openai_utils import analysis_10k_json
+from utils.web_scrapper import serp_scrap_results, scrape_site
 
 load_dotenv()
 # Set your OpenAI API key from the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 product_and_countries_query = "What are the top countries the company has performed well?  what are the top performing products of the company? the response should be two arrays, one for list of countries and another one for list of products"
-
-
-def extract_year_and_value_in_array(data):
-    results = []
-    for entry in data:
-        if 'segment' not in entry:
-            end_date = entry['period']['endDate']
-            year = end_date.split('-')[0]
-            value = entry['value']
-            results.append({"year": year, "value": value})
-    return results
-
-def get_ebitda(OperatingIncome, DepreciationAndAmortization):
-	ebitda = []
-	len_of_dep = len(DepreciationAndAmortization);
-	len_of_optinc = len(OperatingIncome)
-	range_of_data = range(min(len_of_optinc, len_of_dep))
-	print(range_of_data, 'range(len(OperatingIncome))')
-	for i in range_of_data:
-		if(i in OperatingIncome and i in DepreciationAndAmortization):
-			if (OperatingIncome[i]['year'] != DepreciationAndAmortization[i]['year']):
-				print("Error: Operating Income and Depreciation and Amortization years do not match");
-				continue;
-		ebitda.append({"year": OperatingIncome[i]['year'], "value": str(int(OperatingIncome[i]['value']) + int(DepreciationAndAmortization[i]['value']))})
-	return ebitda
-
-def get_growth_rate(data):
-	growth = []
-	for i in range(0, len(data)-1):
-		# Assuming data is sorted in descending order of consecutive years
-		growth.append({"year": data[i]['year'], "value": str(100*(int(data[i]['value']) - int(data[i+1]['value']))/int(data[i+1]['value'])) + " %"})
-
-	return growth
-def get_operating_income_from_json(xbrl_json):
-	value = xbrl_json['StatementsOfIncome']['OperatingIncomeLoss'];
-	yearValue = extract_year_and_value_in_array(value)
-	return yearValue
-
-def get_profit_loss(xbrl_json):
-	value = xbrl_json['StatementsOfIncome']['ProfitLoss']
-	yearValue = extract_year_and_value_in_array(value)
-	return yearValue
-
-def get_net_income(xbrl_json):
-	if 'NetIncomeLossAvailableToCommonStockholdersBasic' in  xbrl_json['StatementsOfIncome'] :
-		value = xbrl_json['StatementsOfIncome']['NetIncomeLossAvailableToCommonStockholdersBasic']
-		yearValue = extract_year_and_value_in_array(value)
-		return yearValue
-	elif 'NetIncomeLoss' in xbrl_json['StatementsOfIncome']:
-		value = xbrl_json['StatementsOfIncome']['NetIncomeLoss'];
-		yearValue = extract_year_and_value_in_array(value)
-		return yearValue
-	else:
-		value = "NA"
-		return value
-
-
-# with clarification, i might need to change the prompt to datapromt2 if required.
-
-def get_interest_expense(xbrl_json):
-	if 'InterestIncomeExpenseNonoperatingNet' in  xbrl_json['StatementsOfIncome'] :
-		value = xbrl_json['StatementsOfIncome']['InterestIncomeExpenseNonoperatingNet'];
-		yearValue = extract_year_and_value_in_array(value)
-		return yearValue
-	elif 'InterestExpense' in xbrl_json['FinancialExpensesNetScheduleOfFinancialExpensesDetail']:
-		value = xbrl_json['FinancialExpensesNetScheduleOfFinancialExpensesDetail']['InterestExpense'];
-		yearValue = extract_year_and_value_in_array(value)
-		return yearValue
-	else:
-		print("returning 3", "NA")
-		value = "NA"
-		return value
-
-def get_dep_amort(xbrl_json):
-	if 'DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts' in  xbrl_json['StatementsOfCashFlows'] :
-		value = xbrl_json['StatementsOfCashFlows']['DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts']
-		yearValue = extract_year_and_value_in_array(value)
-		return yearValue
-	elif 'DepreciationAndAmortization' in xbrl_json['StatementsOfCashFlows']:
-		value =  xbrl_json['StatementsOfCashFlows']['DepreciationAndAmortization'] ;
-		yearValue = extract_year_and_value_in_array(value)
-		return yearValue
-	else:
-		value = "NA"
-		return value
-
 
 def extract_from_xbrl_json(xbrl_json, project_id):
 
