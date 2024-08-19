@@ -15,7 +15,7 @@ from selenium.webdriver.chrome.service import Service
 from fake_useragent import UserAgent
 
 
-no_of_pages_serp = 1
+no_of_pages_serp = 2
 no_of_results_serp = 10
 
 def scrape_site(url):

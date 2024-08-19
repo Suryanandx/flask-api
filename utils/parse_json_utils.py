@@ -4,6 +4,12 @@ import openai
 from sec_api import XbrlApi
 from utils.openai_utils import generate_guidance, generate_expanalysis, analysis_from_html, analysis_10k_json
 from utils.web_scrapper import serp_scrap_results, scrape_site
+import json
+import subprocess
+import openai
+import requests
+from bs4 import BeautifulSoup
+
 
 load_dotenv()
 # Set your OpenAI API key from the environment variable
@@ -98,37 +104,28 @@ def get_dep_amort(xbrl_json):
 
 
 def extract_from_xbrl_json(xbrl_json, project_id):
-	OperatingIncome = get_operating_income_from_json(xbrl_json);
-	ProfitLoss = get_profit_loss(xbrl_json);
-	NetIncome = get_net_income(xbrl_json);
-	InterestExpense = get_interest_expense(xbrl_json)
-	IncomeTax = extract_year_and_value_in_array(xbrl_json['StatementsOfCashFlows']['IncomeTaxesPaidNet']);
-	DepreciationAndAmortization = get_dep_amort(xbrl_json);
-	NetRevenue = extract_year_and_value_in_array(xbrl_json['StatementsOfIncome']['RevenueFromContractWithCustomerExcludingAssessedTax']);
-	name = xbrl_json['CoverPage']['EntityRegistrantName'];
-	ebitda = get_ebitda(OperatingIncome, DepreciationAndAmortization);
-	annual_revenue_growth = get_growth_rate(NetRevenue);
-	ebitda_growth = get_growth_rate(ebitda);
-	year = xbrl_json['CoverPage']['DocumentFiscalYearFocus'];
+
 	response = {
-		"Operating Income": OperatingIncome,
-		"Profit Loss":  ProfitLoss,
-		"Net income": NetIncome,
-		"interest expense": InterestExpense,
-		"Income Tax": IncomeTax,
-		"Depreciation & Amortization": DepreciationAndAmortization,
-		"Net Revenue": NetRevenue,
-		"name": name,
-		"ebitda": ebitda,
-		"annual revenue growth": annual_revenue_growth,
-		"ebitda growth": ebitda_growth,
-		"year": year,
+		"Operating Income": xbrl_json["Operating Income"],
+		"Profit Loss":  xbrl_json["Profit Loss"],
+		"Net income": xbrl_json["Net income"],
+		"interest expense": xbrl_json["interest expense"],
+		"Income Tax": xbrl_json["Income Tax"],
+		"Depreciation & Amortization": xbrl_json["Depreciation & Amortization"],
+		"Net Revenue": xbrl_json["Net Revenue"],
+		"name": xbrl_json["name"],
+		"ebitda": xbrl_json["ebitda"],
+		"annual revenue growth": xbrl_json["annual revenue growth"],
+		"ebitda growth": xbrl_json["ebitda growth"],
+		"year": xbrl_json["year"],
 	}
 
 	# this is used to generate guidance from the extracted data. is in the openai_utils.py file
 	serp_scrapped_urls_method_a = serp_scrap_results(name + " Analysis " + year);
 	serp_scrapped_urls_method_b = serp_scrap_results(name + " most profitable products and countries ");
+	serp_scrapped_urls_method_c = serp_scrap_results(name + " Earnings call " + year);
 	serp_scrapped_urls = serp_scrapped_urls_method_a + list(set(serp_scrapped_urls_method_b) - set(serp_scrapped_urls_method_a))
+	serp_scrapped_urls = serp_scrapped_urls + list(set(serp_scrapped_urls_method_c) - set(serp_scrapped_urls))
 
 	print(serp_scrapped_urls, 'serp_scrapped_urls')
 	scraped_data = []
@@ -181,12 +178,61 @@ def xbrl_to_json(urls_array):
 	json_array = []
 	for url in urls_array:
 		try:
-			xbrl_json_item = xbrlApi.xbrl_to_json(htm_url=url)
+			xbrl_json_item = extract_net_revenue_from_xbrl(htm_url=url)
 			json_array.append(xbrl_json_item)
 		except Exception as e:
 			print(f"Error extracting JSON from XBRL for URL {url}: {e}")
 
 	return json_array
+
+
+
+
+def extract_net_revenue_from_xbrl(xbrl_file_path):
+
+    # Open and read the XBRL file
+    with open(xbrl_file_path, 'r') as file:
+        content = file.read()
+
+    # Parse the XBRL using BeautifulSoup with the lxml XML parser
+    soup = BeautifulSoup(content, features="xml")
+
+    # Define the tags and their output names
+    tag_mapping = {
+        'DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts': 'Depreciation & Amortization',
+        'IncomeTaxesPaidNet': 'Income Tax',
+        'RevenueFromContractWithCustomerExcludingAssessedTax': 'Net Revenue',
+        'NetIncomeLossAttributableToParentBeforeAccretionOfRedeemableNoncontrollingInterest': 'Net Income',
+        'OperatingIncomeLoss': 'Operating Income',
+        'ProfitLoss': 'Profit Loss',
+        'InterestIncomeExpenseNonoperatingNet': 'Interest Expense'
+    }
+
+    def extract_data(tag_name):
+        elements = soup.find_all(tag_name)
+        data = []
+        for element in elements:
+            context_ref = element.get('contextRef')
+            if context_ref:
+                context = soup.find('context', {'id': context_ref})
+                period = context.find('period') if context else None
+                year = period.find('endDate').text[:4] if period else None
+            else:
+                year = None
+
+            data.append({
+                'value': element.text.strip(),
+                'year': year
+            })
+
+        return data
+
+    # Collect data for all tags
+    financial_data = {}
+    for tag, output_name in tag_mapping.items():
+        financial_data[output_name] = extract_data(tag)
+
+    return financial_data
 
 def scrape_and_get_reports(json_array, project_id):
 	print("Scraping and getting reports...")

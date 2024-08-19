@@ -13,12 +13,17 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-def parse_json_garbage(s):
-    s = s[next(idx for idx, c in enumerate(s) if c in "{["):]
+def parse_json_garbage(response):
     try:
-        return json.loads(s)
-    except json.JSONDecodeError as e:
-        return json.loads(s[:e.pos])
+        return json.loads(response)
+    except json.JSONDecodeError:
+        # Attempt to clean and retry parsing the JSON if possible
+        try:
+            cleaned_response = response.rsplit('}', 1)[0] + '}'
+            return json.loads(cleaned_response)
+        except Exception as e:
+            print(f"Failed to parse JSON: {e}")
+            return None
 
 def extract_json_from_images(filename, user_query):
      pdf_path = os.path.join("uploads", filename)    
@@ -293,6 +298,12 @@ def analysis_10k_json(data, scrapped_data, project_id, company_name):
     print(response, 'AI response')
     current_result = parse_json_garbage(response)
     print("returning extracted json", current_result)
+
+    if current_result is None:
+        print("Retrying due to incomplete JSON response...")
+        with get_openai_callback() as cb:
+            response = chain.run(input_documents=docs, question=prompt)
+        current_result = parse_json_garbage(response)
 
     return current_result
 
