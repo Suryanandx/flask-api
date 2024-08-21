@@ -10,7 +10,6 @@ from nltk.tokenize import sent_tokenize
 
 print(os.getcwd())
 
-from utils.pdf_utils import process_pdf
 
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
@@ -49,26 +48,6 @@ def split_text_by_sentences(text, token_limit):
         segments.append(' '.join(sentence_buffer))
 
     return segments
-
-def extract_text_and_save(filename):
-    text = ""
-    pdf_path = os.path.join("uploads", filename)
-    
-    cmd = f"pdfgrep -Pn '^(?s:(?=.*consolidated results of operations)|(?=.*Consolidated Statements of Operations)|(?=.*Consolidated Statements of Cash Flows)|(?=.*CONSOLIDATED STATEMENTS OF CASH FLOWS)|(?=.*CONSOLIDATED STATEMENTS OF INCOME)|(?=.*Interest expenses and other bank charges)|(?=.*Depreciation and Amortization)|(?=.*CONSOLIDATED BALANCE SHEETS))' {pdf_path} | awk -F\":\" '$0~\":\"{{print $1}}' | tr '\n' ','"
-    print(cmd)
-    logging.info(cmd)
-    pages = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    logging.info(f'count of pages {pages}')
-    if not pages:
-       logging.warning(f"No matching pages found in {pdf_path}")
-       return
-    processed_text = process_pdf(pdf_path, pages)
-    if processed_text is not None:
-        text += processed_text
-    text_file = open(f"{os.path.splitext(pdf_path)[0]}.txt", "w")
-    text_file.write(text)
-    text_file.close()       
-    return text
 
 def split_text_by_tokens(text, token_limit):
     """Splits a text into segments, each with a number of tokens up to token_limit."""

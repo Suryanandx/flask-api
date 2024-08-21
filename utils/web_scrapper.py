@@ -1,40 +1,41 @@
 import os
-import openai
-import requests
-from bs4 import BeautifulSoup
-import time
+from fake_useragent import UserAgent
+from pyvirtualdisplay import Display
 from selenium import webdriver
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from pyvirtualdisplay import Display
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-from fake_useragent import UserAgent
-
+from selenium.webdriver.support.ui import WebDriverWait
+import logging
+import openai
+from utils.text_utils import get_or_create_vector_store
+from langchain.callbacks import get_openai_callback
+from langchain.chains.question_answering import load_qa_chain
+from langchain.llms import OpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from selenium.webdriver.firefox.service import Service
 
 no_of_pages_serp = 1
 no_of_results_serp = 10
 
+
 def scrape_site(url):
     scraped_text = ""
     try:
-        print("scrapping url", url)
+        print("scraping url", url)
         driver = build_web_driver()
         if driver is not None:
-            print("scrapping url 1", url)
+            print("scraping url 1", url)
             driver.get(url)
-            print("scrapping url 2", url)
-            print("scrapping url 3", url)
+            print("scraping url 2", url)
+            print("scraping url 3", url)
             element_present = EC.presence_of_element_located((By.XPATH, "/html/body"))
-            print("scrapping url 4", url)
+            print("scraping url 4", url)
             WebDriverWait(driver, 10).until(element_present)
             html = driver.find_element(By.XPATH, "/html/body").text
-            #soup = BeautifulSoup(html, 'html.parser')
-            #scraped_text = ' '.join([p.get_text() for p in soup.find_all('p')])
-            print("scrapping url 5", url)
+            print("scraping url 5", url)
             driver.quit()
             scraped_text = refine_text(html)
         else:
@@ -42,50 +43,43 @@ def scrape_site(url):
     except TimeoutException:
         print("Timed out waiting for page to load")
         scraped_text += "NA"
-    print("scrapping completed")
-
-    # print(html, 'html')
-    # refined_text = __refine_text(html)
-    # print(refined_text)
+    print("scraping completed")
     return scraped_text
 
 
 def build_web_driver():
     try:
-        # Set up WebDriver (1)
-        options = webdriver.ChromeOptions()
-        options.add_argument("--start-maximized")
+        # Set up WebDriver for Firefox (GeckoDriver)
+        options = webdriver.FirefoxOptions()
+        options.add_argument("--headless")  # Run in headless mode
+        options.add_argument("--no-sandbox")
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-notifications")
+
+        # Set up virtual display (only necessary on headless Linux servers)
         display = Display(visible=0, size=(1920, 1080))
         display.start()
+
+        # Random user-agent to mimic a real browser
         ua = UserAgent()
         userAgent = ua.random
         print(userAgent)
-        options.add_argument(f'user-agent={userAgent}')
-        options.add_experimental_option('useAutomationExtension', False)
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument(f'user-agent={userAgent}')
-        options.add_argument("--no-sandbox")
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--window-size=1420,1080')
-        options.add_argument('--headless')
-        options.add_argument('--disable-gpu')
-        options.add_argument("--disable-notifications")
-        options.add_argument("--remote-debugging-port=9222")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
-        options.add_experimental_option("excludeSwitches", ["disable-popup-blocking"])
-        driver = webdriver.Chrome(options=options)
+        options.set_preference("general.useragent.override", userAgent)
+        service = Service(GeckoDriverManager().install())
+
+        # Initialize GeckoDriver with options
+        driver = webdriver.Firefox(service=service, options=options)
         return driver
-    except TimeoutException:
-        print("Timed out waiting for page to load")
+    except Exception as e:
+        print(f"Error initializing WebDriver: {e}")
         return None
 
+
 def serp_scrap_results(query):
-
+    logging.info(f"\scraping for : {query}")
+    print(query)
     driver = build_web_driver()
-
-    # Set up WebDriver
-
 
     # Load Google search page
     url = 'https://www.google.com/'
@@ -96,7 +90,6 @@ def serp_scrap_results(query):
     search_box = driver.find_element(By.NAME, 'q')
     search_box.send_keys(query)
     search_box.send_keys(Keys.RETURN)
-
 
     # Scrape multiple pages
     for page in range(0, no_of_pages_serp):  # Scrape the first 5 pages of results
@@ -122,15 +115,9 @@ def serp_scrap_results(query):
             break
     driver.quit()
     return url_array
-    # Close the WebDriver
 
-from utils.pdf_utils import process_pdf
-from utils.text_utils import get_or_create_vector_store, split_text_by_tokens
-from langchain.llms import OpenAI
-from langchain.callbacks import get_openai_callback
-from langchain.chains.question_answering import load_qa_chain
-from langchain.llms import OpenAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+
 
 
 def refine_text(text):
@@ -151,12 +138,12 @@ def refine_text(text):
         6. **Subscription Prompts**: Requests for readers to subscribe to newsletters or updates.
         7. **Contact Information**: General contact information that does not relate to the main content.
         8. **Boilerplate Text**: Standardized text that is repeated across multiple pages without specific relevance to the current content.
-        
+
         However, it is crucial to retain all important information related to the main topic.That includes facts, figures, statistics, analysis, and any other relevant data. If not all the types of content mentioned above are present, can be ignore the ones that are not relevant. But do not remove any relevant content in order to follow the above rules.
         Also the most important rule is to ensure that the refined text follows the same structure and flow as the original text. There shouldnt be any change in the meaning of the text.
         Do not try to rewrite or rearrange or paraphrase the text. Just remove the irrelevant content. This is not a creative writing task, just a task to remove irrelevant content.
        '''
-    
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
@@ -179,6 +166,7 @@ def refine_text(text):
         response = chain.run(input_documents=docs, question=prompt)
 
     return response
+
 
 if __name__ == '__main__':
     print(scrape_site("https://www.tipranks.com/stocks/amrx/forecast"))
