@@ -1,11 +1,12 @@
 import os
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from sec_api import XbrlApi
 import logging
 from utils.openai_utils import analysis_10k_json
 from utils.web_scrapper import serp_scrap_results, scrape_site
+from concurrent.futures import ProcessPoolExecutor
 
 load_dotenv()
 # Set your OpenAI API key from the environment variable
@@ -139,6 +140,13 @@ def summarize_data(year_wise_data):
 
 	return "\n".join(summary)
 
+def scrape_url(url):
+	try:
+		return scrape_site(url)
+	except Exception as e:
+		logging.error(f"Couldn't scrap the site: {str(e)}", exc_info=True)
+		return "NA"
+
 
 def extract_from_xbrl_json(xbrl_json, project_id):
 	json_from_xbrl = extract_year_wise_data(xbrl_json)
@@ -157,19 +165,19 @@ def extract_from_xbrl_json(xbrl_json, project_id):
 	serp_scrapped_urls_method_c = serp_scrap_results(company_name + " Earnings call for the year " + latest_year);
 	serp_scrapped_urls = serp_scrapped_urls_method_a + list(set(serp_scrapped_urls_method_b) - set(serp_scrapped_urls_method_a))
 	serp_scrapped_urls = serp_scrapped_urls + list(set(serp_scrapped_urls_method_c) - set(serp_scrapped_urls))
+
+	# Filtering URLs
 	filtered_urls = [url for url in serp_scrapped_urls if not url.endswith(".pdf")]
 
 	print(filtered_urls, 'serp_scrapped_urls')
 	scraped_data = []
-	for url in filtered_urls:
-		# Scrape each website with a timeout of 60 seconds
-		try:
-			current_scrapped_text = scrape_site(url)
-			scraped_data.append(current_scrapped_text)
-		except Exception as e:
-			logging.error(f"Couldn't scrap the site: {str(e)}", exc_info=True)
-			print("Couldn't scrap the site")
-			scraped_data.append("NA")
+
+	max_workers = min(8, len(filtered_urls))  # Use fewer processes to reduce load
+
+	with ProcessPoolExecutor(max_workers=max_workers) as executor:
+		future_to_url = {executor.submit(scrape_url, url): url for url in filtered_urls}
+		for future in as_completed(future_to_url):
+			scraped_data.append(future.result())
 
 	# Join scraped data from all URLs into a single text
 	all_scraped_data = ' '.join(scraped_data)
@@ -266,11 +274,21 @@ def extract_net_revenue_from_xbrl(xbrl_file_path):
 
     return financial_data
 
+def process_json_item(index, json_item, project_id):
+    result = extract_from_xbrl_json(json_item, project_id)
+    return index, result  # Ensure it returns a tuple with two values
+
 def scrape_and_get_reports(json_array, project_id):
-	print("Scraping and getting reports...")
-	report_array = []
-	for json_item in json_array:
-		response = extract_from_xbrl_json(json_item, project_id)
-		report_array.append(response)
-	
-	return report_array
+    print("Scraping and getting reports...")
+    report_array = [None] * len(json_array)
+
+    max_workers = min(4, len(json_array))  # Adjust based on your system
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(process_json_item, idx, json_item, project_id): idx for idx, json_item in enumerate(json_array)}
+
+        for future in futures:
+            idx, result = future.result()  # Expecting a tuple (index, result)
+            report_array[idx] = result
+
+    return report_array

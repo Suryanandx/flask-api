@@ -2,6 +2,7 @@ import os
 from fake_useragent import UserAgent
 from pyvirtualdisplay import Display
 from selenium import webdriver
+from webdriver_manager.firefox import GeckoDriverManager
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -14,6 +15,8 @@ from langchain.callbacks import get_openai_callback
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from selenium.webdriver.firefox.service import Service
+
 no_of_pages_serp = 1
 no_of_results_serp = 10
 
@@ -63,9 +66,10 @@ def build_web_driver():
         userAgent = ua.random
         print(userAgent)
         options.set_preference("general.useragent.override", userAgent)
+        service = Service(GeckoDriverManager().install())
 
         # Initialize GeckoDriver with options
-        driver = webdriver.Firefox(options=options)
+        driver = webdriver.Firefox(service=service, options=options)
         return driver
     except Exception as e:
         print(f"Error initializing WebDriver: {e}")
