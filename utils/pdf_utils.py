@@ -1,9 +1,10 @@
 import os
 import logging
 import subprocess
+import sys
 import tabula
 import fitz
-from PyPDF2 import PdfReader, PdfFileReader
+from PyPDF2 import PdfReader
 from werkzeug.utils import secure_filename
 
 # Function to process a PDF file and extract text
@@ -22,30 +23,31 @@ def process_pdf(file_path, pages):
 
 def pdf_to_image(pdf_location, pages):
     try:
-        print(pdf_location)
         images = []
         doc = fitz.open(pdf_location)
+        if pages == "all":
+            pages = range(1, len(doc) + 1)
+        else:
+            pages = [int(page) for page in pages.split(',')]
+
         for count, page in enumerate(pages):
-           print(page)
-           loaded_page = doc.load_page(int(page) - 1)  # number of page
-           print("opend file")
-           pix = loaded_page.get_pixmap()
-           print("pix")
-           output = f"{os.path.splitext(pdf_location)[0]}-{count}.jpg"
-           print(output)
-           pix.save(output)
-           print("saved output")
-           base64_image = encode_image( f"{os.path.splitext(pdf_location)[0]}-{count}.jpg")
-           images.append(base64_image)
+            loaded_page = doc.load_page(page - 1)  # page numbers are 0-based in PyMuPDF
+            pix = loaded_page.get_pixmap()
+            output = f"{os.path.splitext(pdf_location)[0]}-{count}.jpg"
+            pix.save(output)
+            base64_image = encode_image(output)
+            images.append(base64_image)
+            os.remove(output)  # Clean up the image file after encoding
+
         return images
     except Exception as e:
-        logging.error(f"Error processing PDF: {str(e)}")
+        logging.error(f"Error converting PDF to images: {str(e)}")
         return None
 
 def total_pages(pdf):
     with open(pdf, 'rb') as file:
-        pdf_object = PdfFileReader(file)
-        pages = ','.join([str(i) for i in range(pdf_object.getNumPages())])
+        pdf_object = PdfReader(file)
+        pages = ','.join([str(i) for i in range(len(pdf_object.pages))])
     return pages
 
 def extract_tables(pdf, pattern):
@@ -59,7 +61,7 @@ def extract_tables(pdf, pattern):
             logging.warning(f"No matching pages found in {pdf}")
             return
 
-        tabula.convert_into(pdf, f"{os.path.splitext(pdf)[0]}.csv", output_format="csv", pages="39")
+        tabula.convert_into(pdf, f"{os.path.splitext(pdf)[0]}.csv", output_format="csv", pages="54")
         # jsonoutput = tabula.read_pdf(pdf, output_format="json", pages="39")
         # print(jsonoutput)
         logging.info(f"Processed {pdf}")

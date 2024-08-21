@@ -573,5 +573,20 @@ def test_note():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/pdf_extract_test', methods=['GET'])
+@cross_origin()
+def test_pdf_extract():
+    from utils.pdf_utils import process_pdf, pdf_to_image, total_pages, extract_tables, process_pdf_and_store
+
+    file = r"C:\Users\dault\OneDrive\Desktop\Computer_Science\Internship\files\Amneal_10ks\Amneal_10ks\2023.pdf"
+    text = process_pdf(file, "all")
+    totalPages = total_pages(file)
+    image = pdf_to_image(file, "all")
+
+
+    return jsonify({"text": text, "Total Pages": totalPages, "Image": image}), 200
+
 if __name__ == '__main__':
+
     app.run(host='0.0.0.0', port=PORT, debug=True)
