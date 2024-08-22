@@ -16,6 +16,7 @@ xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 product_and_countries_query = "What are the top countries the company has performed well?  what are the top performing products of the company? the response should be two arrays, one for list of countries and another one for list of products"
 
 from collections import defaultdict
+max_pool_workers = int(os.getenv("MAX_POOL_WORKERS"))
 
 
 def extract_latest_year_data(xbrl_json):
@@ -179,7 +180,7 @@ def extract_from_xbrl_json(xbrl_json, project_id):
     print(filtered_urls, 'serp_scrapped_urls')
     scraped_data = []
 
-    max_workers = max(1, multiprocessing.cpu_count())  # Use fewer processes to reduce load
+    max_workers = max(max_pool_workers, multiprocessing.cpu_count())  # Use fewer processes to reduce load
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_url = {executor.submit(scrape_url, url): url for url in filtered_urls}
@@ -293,7 +294,7 @@ def scrape_and_get_reports(json_array, project_id):
     report_array = [None] * len(json_array)
 
     cpu_cores = multiprocessing.cpu_count()
-    max_workers = max(1, min(cpu_cores, len(json_array)))
+    max_workers = max(max_pool_workers, min(cpu_cores, len(json_array)))
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(process_json_item, idx, json_item, project_id): idx for idx, json_item in

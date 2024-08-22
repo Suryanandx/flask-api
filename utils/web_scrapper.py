@@ -17,8 +17,8 @@ from langchain.llms import OpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from selenium.webdriver.firefox.service import Service
 
-no_of_pages_serp = 1
-no_of_results_serp = 10
+no_of_pages_serp =  int(os.getenv("NO_OF_SERP_PAGES"))
+no_of_results_serp =  int(os.getenv("NO_OF_SERP_RESULTS"))
 
 
 def scrape_site(url):
@@ -47,82 +47,6 @@ def scrape_site(url):
     return scraped_text
 
 
-# def build_web_driver():
-#     try:
-#         # Set up WebDriver for Firefox (GeckoDriver)
-#         options = webdriver.FirefoxOptions()
-#         options.add_argument("--headless")  # Run in headless mode
-#         options.add_argument("--no-sandbox")
-#         options.add_argument('--disable-dev-shm-usage')
-#         options.add_argument("--disable-gpu")
-#         options.add_argument("--disable-notifications")
-#
-#         # Set up virtual display (only necessary on headless Linux servers)
-#         display = Display(visible=0, size=(1920, 1080))
-#         display.start()
-#
-#         # Random user-agent to mimic a real browser
-#         ua = UserAgent()
-#         userAgent = ua.random
-#         print(userAgent)
-#         options.set_preference("general.useragent.override", userAgent)
-#
-#         # Ensure the geckodriver path is correct
-#         gecko_path = r"C:\Users\jatov\Desktop\geckodriver.exe"
-#         if not os.path.exists(gecko_path):
-#             raise FileNotFoundError(f"GeckoDriver not found at path: {gecko_path}")
-#         # service = Service(GeckoDriverManager().install())
-#         service = Service(executable_path=gecko_path)
-#         # Initialize GeckoDriver with options
-#         driver = webdriver.Firefox(service=service, options=options)
-#         return driver
-#     except Exception as e:
-#         print(f"Error initializing WebDriver: {e}")
-#         return None
-#
-#
-# def serp_scrap_results(query):
-#     logging.info(f"\scraping for : {query}")
-#     print(query)
-#     driver = build_web_driver()
-#
-#     # Load Google search page
-#     url = 'https://www.google.com/'
-#     driver.get(url)
-#     url_array = []
-#
-#     # Search for keyword
-#     search_box = driver.find_element(By.NAME, 'q')
-#     search_box.send_keys(query)
-#     search_box.send_keys(Keys.RETURN)
-#
-#     # Scrape multiple pages
-#     for page in range(0, no_of_pages_serp):  # Scrape the first 5 pages of results
-#         # Wait for the search results page to load
-#         try:
-#             element_present = EC.presence_of_element_located((By.CSS_SELECTOR, '.g'))
-#             WebDriverWait(driver, 10).until(element_present)
-#         except TimeoutException:
-#             print("Timed out waiting for page to load")
-#
-#         # Parse the search results
-#         search_results = driver.find_elements(By.CSS_SELECTOR, '.g')
-#         del search_results[no_of_results_serp:]
-#         for result in search_results:
-#             link = result.find_element(By.CSS_SELECTOR, 'a').get_attribute('href').split('#')[0]
-#             url_array.append(link)
-#
-#         # Click on the next page
-#         try:
-#             next_button = driver.find_element(By.CSS_SELECTOR, '#pnnext')
-#             next_button.click()
-#         except:
-#             break
-#     driver.quit()
-#     return url_array
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
 
 def build_web_driver():
     try:
@@ -141,11 +65,11 @@ def build_web_driver():
         options.set_preference("general.useragent.override", userAgent)
 
         # Ensure the geckodriver path is correct
-        gecko_path = r"C:\Users\jatov\Desktop\geckodriver.exe"
-        if not os.path.exists(gecko_path):
-            raise FileNotFoundError(f"GeckoDriver not found at path: {gecko_path}")
-
-        service = Service(executable_path=gecko_path)
+        gecko_path = os.getenv("GECKO_DRIVER_PATH")
+        if not gecko_path:
+            service = Service(GeckoDriverManager().install())
+        else:
+            service = Service(executable_path=gecko_path)
         # Initialize GeckoDriver with options
         driver = webdriver.Firefox(service=service, options=options)
         return driver
