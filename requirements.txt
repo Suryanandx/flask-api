@@ -40,3 +40,5 @@ PyMuPDF==1.24.2
 fake-useragent
 pyvirtualdisplay
 selenium
+bson
+webdriver_manager

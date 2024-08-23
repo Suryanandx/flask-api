@@ -77,7 +77,7 @@ def build_web_driver():
         logging.error(f"Error initializing WebDriver: {e}")
         return None
 
-def serp_scrap_results(query, no_of_pages_serp=5, no_of_results_serp=10):
+def serp_scrap_results(query):
     logging.info(f"Scraping for: {query}")
 
     driver = build_web_driver()
