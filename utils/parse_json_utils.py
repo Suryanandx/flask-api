@@ -8,14 +8,14 @@ import logging
 from utils.openai_utils import analysis_10k_json
 from utils.web_scrapper import serp_scrap_results, scrape_site
 from concurrent.futures import ProcessPoolExecutor
-
+from collections import defaultdict
 load_dotenv()
 # Set your OpenAI API key from the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 xbrlApi = XbrlApi(os.getenv("SEC_API_KEY"))
 product_and_countries_query = "What are the top countries the company has performed well?  what are the top performing products of the company? the response should be two arrays, one for list of countries and another one for list of products"
 
-from collections import defaultdict
+
 max_pool_workers = int(os.getenv("MAX_POOL_WORKERS"))
 
 
@@ -166,10 +166,10 @@ def extract_from_xbrl_json(xbrl_json, project_id):
     xbrl_json["ebitda growth"] = financials["ebitda growth"]
 
     # this is used to generate guidance from the extracted data. is in the openai_utils.py file
-    serp_scrapped_urls_method_a = serp_scrap_results(company_name + " Analysis for the year " + latest_year);
+    serp_scrapped_urls_method_a = serp_scrap_results(company_name + " Analysis for the year " + latest_year)
     serp_scrapped_urls_method_b = serp_scrap_results(
-        company_name + " most profitable products and countries for the year " + latest_year);
-    serp_scrapped_urls_method_c = serp_scrap_results(company_name + " Earnings call for the year " + latest_year);
+        company_name + " most profitable products and countries for the year " + latest_year)
+    serp_scrapped_urls_method_c = serp_scrap_results(company_name + " Earnings call for the year " + latest_year)
     serp_scrapped_urls = serp_scrapped_urls_method_a + list(
         set(serp_scrapped_urls_method_b) - set(serp_scrapped_urls_method_a))
     serp_scrapped_urls = serp_scrapped_urls + list(set(serp_scrapped_urls_method_c) - set(serp_scrapped_urls))
@@ -220,130 +220,134 @@ def extract_from_xbrl_json(xbrl_json, project_id):
     return xbrl_json
 
 
-def xbrl_to_json(urls_array):
+def xbrl_to_json(file_paths):
     json_array = []
-    for url in urls_array:
+    for file_path in file_paths:
         try:
-            xbrl_json_item = extract_net_revenue_from_xbrl(url)
-            json_array.append(xbrl_json_item)
+            xbrl_json_item = extract_net_revenue_from_xbrl(file_path)
+            if xbrl_json_item is not None:
+                json_array.append(xbrl_json_item)
         except Exception as e:
-            print(f"Error extracting JSON from XBRL for URL {url}: {e}")
-
+            logging.error(f"Error processing file {file_path}: {e}")
     return json_array
 
 
 def extract_net_revenue_from_xbrl(xbrl_file_path):
-    # Open and read the XBRL file
-    with open(xbrl_file_path, 'r') as file:
-        content = file.read()
+    try:
+        # Open and read the XBRL file
+        with open(xbrl_file_path, 'r') as file:
+            content = file.read()
 
-    # Parse the XBRL using BeautifulSoup with the lxml XML parser
-    soup = BeautifulSoup(content, features="xml")
+        # Parse the XBRL using BeautifulSoup with the lxml XML parser
+        soup = BeautifulSoup(content, features="xml")
 
-    # Define the tags and their output names
-    tag_mapping = {
-        'Depreciation & Amortization': [
-            'DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts',
-            'IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest',
-            'DepreciationAndAmortization',
-            'DepreciationAmortizationAndAccretionNet',
-            'DepreciationAmortization',
-            'Amortization',
-            'Depreciation',
-            'Accretion',
-            'AmortizationExpense'
-        ],
-        'Income Tax': [
-            'IncomeTaxesPaidNet',
-            'IncomeTaxExpenseBenefit',
-            'IncomeTax',
-            'IncomeTaxExpense',
-            'IncomeTaxBenefit',
-            'IncomeTaxPayable',
-            'TaxExpense'
-        ],
-        'Net Revenue': [
-            'RevenueFromContractWithCustomerExcludingAssessedTax',
-            'Revenues',
-            'SalesRevenueNet',
-            'Revenue',
-            'TotalRevenue',
-            'NetSales',
-            'GrossRevenue'
-        ],
-        'Net Income': [
-            'NetIncomeLossAttributableToParentBeforeAccretionOfRedeemableNoncontrollingInterest',
-            'NetIncomeLoss',
-            'NetIncome',
-            'IncomeLoss',
-            'NetEarnings',
-            'EarningsAfterTax'
-        ],
-        'Operating Income': [
-            'OperatingIncomeLoss',
-            'OperatingProfitLoss',
-            'OperatingIncome',
-            'OperatingProfit',
-            'IncomeFromOperations'
-        ],
-        'Profit Loss': [
-            'ProfitLoss',
-            'ComprehensiveIncomeNetOfTax',
-            'NetProfit',
-            'NetEarningsLoss',
-            'ProfitOrLoss',
-            'ComprehensiveIncome'
-        ],
-        'Interest Expense': [
-            'InterestIncomeExpenseNonoperatingNet',
-            'InterestExpense',
-            'InterestIncome',
-            'InterestCost',
-            'InterestCharges',
-            'InterestExpenseNet'
-        ],
-        'name': [
-            'EntityRegistrantName',
-            'CompanyName',
-            'IssuerName',
-            'EntityName'
-        ],
-        'year': [
-            'DocumentFiscalYearFocus',
-            'FiscalYear',
-            'YearOfReport',
-            'ReportingYear',
-            'YearEnd'
-        ]
-    }
+        # Define the tags and their output names
+        tag_mapping = {
+            'Depreciation & Amortization': [
+                'DepreciationDepletionAndAmortizationExcludingAmortizationOfDebtIssuanceCosts',
+                'IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest',
+                'DepreciationAndAmortization',
+                'DepreciationAmortizationAndAccretionNet',
+                'DepreciationAmortization',
+                'Amortization',
+                'Depreciation',
+                'Accretion',
+                'AmortizationExpense'
+            ],
+            'Income Tax': [
+                'IncomeTaxesPaidNet',
+                'IncomeTaxExpenseBenefit',
+                'IncomeTax',
+                'IncomeTaxExpense',
+                'IncomeTaxBenefit',
+                'IncomeTaxPayable',
+                'TaxExpense'
+            ],
+            'Net Revenue': [
+                'RevenueFromContractWithCustomerExcludingAssessedTax',
+                'Revenues',
+                'SalesRevenueNet',
+                'Revenue',
+                'TotalRevenue',
+                'NetSales',
+                'GrossRevenue'
+            ],
+            'Net Income': [
+                'NetIncomeLossAttributableToParentBeforeAccretionOfRedeemableNoncontrollingInterest',
+                'NetIncomeLoss',
+                'NetIncome',
+                'IncomeLoss',
+                'NetEarnings',
+                'EarningsAfterTax'
+            ],
+            'Operating Income': [
+                'OperatingIncomeLoss',
+                'OperatingProfitLoss',
+                'OperatingIncome',
+                'OperatingProfit',
+                'IncomeFromOperations'
+            ],
+            'Profit Loss': [
+                'ProfitLoss',
+                'ComprehensiveIncomeNetOfTax',
+                'NetProfit',
+                'NetEarningsLoss',
+                'ProfitOrLoss',
+                'ComprehensiveIncome'
+            ],
+            'Interest Expense': [
+                'InterestIncomeExpenseNonoperatingNet',
+                'InterestExpense',
+                'InterestIncome',
+                'InterestCost',
+                'InterestCharges',
+                'InterestExpenseNet'
+            ],
+            'name': [
+                'EntityRegistrantName',
+                'CompanyName',
+                'IssuerName',
+                'EntityName'
+            ],
+            'year': [
+                'DocumentFiscalYearFocus',
+                'FiscalYear',
+                'YearOfReport',
+                'ReportingYear',
+                'YearEnd'
+            ]
+        }
 
-    def extract_data(tag_names):
-        for tag_name in tag_names:
-            elements = soup.find_all(tag_name)
-            if elements:
-                data = []
-                for element in elements:
-                    context_ref = element.get('contextRef')
-                    if context_ref:
-                        context = soup.find('context', {'id': context_ref})
-                        period = context.find('period') if context else None
-                        year = period.find('endDate').text[:4] if period else None
-                    else:
-                        year = None
+        def extract_data(tag1_names):
+            for tag_name in tag1_names:
+                elements = soup.find_all(tag_name)
+                if elements:
+                    data = []
+                    for element in elements:
+                        context_ref = element.get('contextRef')
+                        if context_ref:
+                            context = soup.find('context', {'id': context_ref})
+                            period = context.find('period') if context else None
+                            year = period.find('endDate').text[:4] if period else None
+                        else:
+                            year = None
 
-                    data.append({
-                        'value': element.text.strip(),
-                        'year': year
-                    })
-                return data
-        return None  # Return None if no data was found for any of the tag names
+                        data.append({
+                            'value': element.text.strip(),
+                            'year': year
+                        })
+                    return data
+            return None  # Return None if no data was found for any of the tag names
 
-    # Collect data for all tags
-    financial_data = {}
-    for output_name, tag_names in tag_mapping.items():
-        financial_data[output_name] = extract_data(tag_names) or []
+        # Collect data for all tags
+        financial_data = {}
+        for output_name, tag_names in tag_mapping.items():
+            financial_data[output_name] = extract_data(tag_names) or []
 
-    return financial_data
+        return financial_data
+    except Exception as e:
+        logging.error(f"Error extracting data from XBRL file {xbrl_file_path}: {e}")
+        return None
 
 
 def process_json_item(index, json_item, project_id):
