@@ -15,6 +15,7 @@ from user_db.user_routes import init_routes
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 import datetime as date
 import tiktoken
+from utils.web_scrapper import get_market_cap_by_company_name
 
 model = "gpt-4-turbo"
 enc = tiktoken.encoding_for_model(model)
@@ -368,12 +369,6 @@ def test_note():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
+    
 if __name__ == '__main__':
-<<<<<<< HEAD
-
-    app.run(host='0.0.0.0', port=PORT, debug=True)
-=======
     app.run(host='0.0.0.0', port=PORT, debug=True, threaded=True)
->>>>>>> 69cdc382e92c8116a2b9bb32620907272f51b751
