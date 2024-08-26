@@ -140,9 +140,10 @@ def projects():
             xbrl_json = xbrl_to_json(url_array)
             result = save_to_mongodb(project_name, project_description, comps, xbrl_json)
             if result:
-                print("Project saved successfully:", result)
+                return jsonify({"data": result}), 201
             else:
-                print("Failed to save project.")
+                return jsonify({"error": "Failed to save project"}), 500
+
         except Exception as e:
             return jsonify({"error": f"project adding  error: {str(e)}"}), 500
 
@@ -370,5 +371,31 @@ def test_note():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
+@app.route('/api/get_market_cap/<project_id>', methods=['GET'])
+def get_market_cap(project_id):
+    try:
+        project = db.projects.find_one({"_id": ObjectId(project_id)})
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+        
+        for comp in project["xbrl_json"]:
+            try:
+                company_name = comp["name"][0]["value"]
+                market_cap = get_market_cap_by_company_name(company_name)
+                if "market_cap" not in comp:
+                    comp["market_cap"] = []
+                comp["market_cap"] = market_cap
+                db.projects.update_one(
+                    {"_id": ObjectId(project_id)},
+                    {"$set": {"xbrl_json": project['xbrl_json']}}
+                )
+            except Exception as e:
+                print(e)
+                continue
+        return jsonify({"message": "Market cap updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True, threaded=True)
