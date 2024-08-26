@@ -11,11 +11,11 @@ from sec_api import XbrlApi
 from werkzeug.utils import secure_filename
 
 from user_db.user_routes import init_routes
+from utils.web_scrapper import get_market_cap_by_company_name
 
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 import datetime as date
 import tiktoken
-from utils.web_scrapper import get_market_cap_by_company_name
 
 model = "gpt-4-turbo"
 enc = tiktoken.encoding_for_model(model)
