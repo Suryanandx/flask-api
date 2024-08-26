@@ -139,9 +139,10 @@ def projects():
             xbrl_json = xbrl_to_json(url_array)
             result = save_to_mongodb(project_name, project_description, comps, xbrl_json)
             if result:
-                print("Project saved successfully:", result)
+                return jsonify({"data": result}), 201
             else:
-                print("Failed to save project.")
+                return jsonify({"error": "Failed to save project"}), 500
+
         except Exception as e:
             return jsonify({"error": f"project adding  error: {str(e)}"}), 500
 
