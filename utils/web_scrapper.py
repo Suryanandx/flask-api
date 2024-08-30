@@ -1,6 +1,8 @@
 import os
+from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from pyvirtualdisplay import Display
+import requests
 from selenium import webdriver
 from webdriver_manager.firefox import GeckoDriverManager
 from selenium.common.exceptions import TimeoutException
@@ -176,6 +178,53 @@ def refine_text(text):
         response = chain.run(input_documents=docs, question=prompt)
 
     return response
+
+def get_market_cap_by_company_name(company_name):
+    google_finance_url = find_google_finance_link(company_name)
+    if google_finance_url:
+        return get_market_cap(google_finance_url)
+    else:
+        return f"Google Finance link for {company_name} not found."
+        
+def find_google_finance_link(company_name):
+    query = f"{company_name} googlefinance"
+    search_url = f"https://www.google.com/search?q={query}"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
+    }
+    
+    response = requests.get(search_url, headers=headers)
+    
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+
+        for link in soup.find_all('a', href=True):
+            href = link['href']
+            if "https://www.google.com/finance/quote/" in href:
+                return href.split("&")[0] 
+    return None
+
+def get_market_cap(google_finance_url):
+    response = requests.get(google_finance_url)
+    
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        elements = soup.find_all('div', class_='gyFHrc')
+        
+        for element in elements:
+            if 'Market cap' in element.text:
+                value_div = element.find('div', class_='P6K39c')
+                if value_div:
+                    return value_div.text.strip()
+                else:
+                    return "Market cap value not found"
+        return "Market cap not found"
+    else:
+        return f"Failed to retrieve data. Status code: {response.status_code}"
+
 
 
 if __name__ == '__main__':

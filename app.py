@@ -11,6 +11,7 @@ from sec_api import XbrlApi
 from werkzeug.utils import secure_filename
 
 from user_db.user_routes import init_routes
+from utils.web_scrapper import get_market_cap_by_company_name
 
 frontend = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 import datetime as date
@@ -369,7 +370,32 @@ def test_note():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
+    
+@app.route('/api/get_market_cap/<project_id>', methods=['GET'])
+def get_market_cap(project_id):
+    try:
+        project = db.projects.find_one({"_id": ObjectId(project_id)})
+        if not project:
+            return jsonify({"error": f"Project with ID '{project_id}' not found"}), 404
+        
+        for comp in project["xbrl_json"]:
+            try:
+                company_name = comp["name"][0]["value"]
+                market_cap = get_market_cap_by_company_name(company_name)
+                if "market_cap" not in comp:
+                    comp["market_cap"] = []
+                comp["market_cap"] = market_cap
+                db.projects.update_one(
+                    {"_id": ObjectId(project_id)},
+                    {"$set": {"xbrl_json": project['xbrl_json']}}
+                )
+            except Exception as e:
+                print(e)
+                continue
+        return jsonify({"message": "Market cap updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True, threaded=True)
